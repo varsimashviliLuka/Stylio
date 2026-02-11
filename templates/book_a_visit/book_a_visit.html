@@ -1,0 +1,525 @@
+{% extends 'base.html' %}
+
+{% block title %}
+{{ salon.name }} • Book a Visit
+{% endblock %}
+
+{% block style %}
+<style>
+  .booking-wrap { max-width: 900px; margin: 0 auto; }
+  .rounded-16 { border-radius: 16px; }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(8px); transition: opacity .25s ease, transform .25s ease; }
+  .reveal.show { opacity: 1; transform: translateY(0); }
+
+  /* selections */
+  .selected { border: 2px solid #0d6efd !important; background: #f5f9ff; }
+
+  .service-option { cursor: pointer; border-radius: 12px; transition: 0.2s; margin-bottom: 8px; }
+  .service-option:hover { background: #f5f9ff; }
+
+  .staff-card {
+    border: 1px solid #dee2e6; border-radius: 14px; padding: 12px; text-align: center;
+    cursor: pointer; transition: 0.3s; user-select: none;
+  }
+  .staff-card:hover { background: #f5f9ff; }
+
+  .time-slot {
+    border: 1px solid #dee2e6; border-radius: 12px; padding: 8px 16px;
+    cursor: pointer; transition: 0.3s; font-weight: 500; user-select: none;
+  }
+  .time-slot:hover { background: #f5f9ff; }
+
+  /* locked */
+  .locked { opacity: .55; pointer-events: none; }
+
+  /* cursor fix */
+  input, textarea, select { cursor: text !important; }
+  button, a, label.service-option, .staff-card, .time-slot { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="booking-wrap">
+
+    <!-- Back -->
+    <a href="{{ url_for('home_page') }}" class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
+      <i class="bi bi-arrow-left me-2"></i> Back to Salons
+    </a>
+
+    <!-- TOP SALON CARD -->
+    <div class="card shadow-sm border-0 mb-4 overflow-hidden rounded-16 reveal show">
+      {% set photos = salon.photos if salon.photos|length > 0 else ["https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png"] %}
+      <div id="bookingCarousel{{ salon.id }}" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner">
+          {% for photo in photos %}
+          <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %}">
+            <img src="{{ photo }}" class="d-block w-100" style="height: 260px; object-fit: cover;">
+          </div>
+          {% endfor %}
+        </div>
+        {% if photos|length > 1 %}
+        <button class="carousel-control-prev" type="button" data-bs-target="#bookingCarousel{{ salon.id }}" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#bookingCarousel{{ salon.id }}" data-bs-slide="next">
+          <span class="carousel-control-next-icon"></span>
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div>
+            <h3 class="fw-bold mb-1">{{ salon.name }}</h3>
+            <p class="text-muted mb-0">
+              <i class="bi bi-geo-alt-fill me-1 text-primary"></i>{{ salon.location }}
+            </p>
+          </div>
+
+          <div class="text-end">
+            {% if salon.average_review == 0 %}
+              <span class="text-muted fst-italic">Not reviewed yet</span>
+            {% else %}
+              <span class="text-warning">
+                {% for i in range(salon.average_review|int) %}<i class="bi bi-star-fill"></i>{% endfor %}
+                {% for i in range(5 - salon.average_review|int) %}<i class="bi bi-star"></i>{% endfor %}
+              </span>
+              <div class="small text-muted">{{ salon.review_count }} reviews</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="mt-3">
+          {% for tag in salon.tags %}
+            <span class="badge bg-primary me-1">{{ tag }}</span>
+          {% endfor %}
+        </div>
+
+        <p class="mt-3 text-muted mb-0">{{ salon.description }}</p>
+      </div>
+    </div>
+
+    <!-- STEP 1: SERVICE -->
+    <div id="stepService" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show">
+      <h5 class="fw-semibold mb-1">1) Select a Service</h5>
+      <p class="text-muted mb-3">Choose the service you'd like to book</p>
+
+      <div class="list-group">
+        {% for service in salon.services %}
+        <label class="list-group-item service-option">
+          <input type="radio" name="service" hidden value="{{ service.name }}">
+          <div class="d-flex justify-content-between">
+            <div>
+              <strong>{{ service.name }}</strong>
+              <div class="small text-muted">{{ service.duration }} min</div>
+            </div>
+            <span class="fw-semibold">${{ service.price }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- STEP 2: STAFF -->
+    <div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
+      <h5 class="fw-semibold mb-1">2) Select Staff Member <span class="text-muted">(Optional)</span></h5>
+      <p class="text-muted mb-3">Only staff who offer the selected service will appear</p>
+
+      <p id="noStaffMsg" class="text-muted fst-italic d-none mb-3">No staff available for this service.</p>
+
+      <div class="row g-3">
+        {% for staff in salon.staff %}
+        <div class="col-md-4 staff-wrapper" data-skills='{{ staff.skills | default([]) | tojson }}'>
+          <label class="staff-card w-100">
+            <input type="radio" name="staff" hidden value="{{ staff.name }}">
+            <img src="{{ staff.image }}" class="rounded-circle mb-2" width="80" height="80">
+            <h6 class="mb-0">{{ staff.name }}</h6>
+            <small class="text-muted">{{ staff.profession }}</small>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- STEP 3: DATE -->
+    <div id="stepDate" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">
+      <h5 class="fw-semibold mb-1">3) Select Date</h5>
+      <p class="text-muted mb-3">Choose your preferred appointment date</p>
+      <input id="dateInput" type="date" class="form-control">
+    </div>
+
+    <!-- STEP 4: TIME -->
+    <div id="stepTime" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">
+      <h5 class="fw-semibold mb-1">4) Select Time</h5>
+      <p class="text-muted mb-3">Choose your preferred time slot</p>
+
+      <div class="d-flex flex-wrap gap-2">
+        {% for time in ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00"] %}
+        <label class="time-slot">
+          <input type="radio" name="time" hidden value="{{ time }}">
+          <span>{{ time }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- STEP 5: USER INFO + POST -->
+    <div id="stepInfo" class="card p-4 shadow-sm border-0 rounded-16 reveal show locked">
+      <h5 class="fw-semibold mb-1">5) Your Information</h5>
+      <p class="text-muted mb-3">Please provide your contact details</p>
+
+      <form id="bookingForm" method="POST" action="{{ url_for('book_a_visit', id=salon.id) }}" novalidate>
+        <!-- Hidden values filled by JS -->
+        <input type="hidden" name="salon_name" value="{{ salon.name }}">
+        <input type="hidden" name="salon_id" value="{{ salon.id }}">
+        <input type="hidden" name="service" id="hiddenService">
+        <input type="hidden" name="staff" id="hiddenStaff">
+        <input type="hidden" name="date" id="hiddenDate">
+        <input type="hidden" name="time" id="hiddenTime">
+
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Full Name</label>
+            <input id="fullName" name="full_name" type="text" class="form-control" placeholder="John Doe" required>
+            <div class="invalid-feedback">Please enter your full name.</div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input id="email" name="email" type="email" class="form-control" placeholder="john@example.com" required>
+            <div class="invalid-feedback">Please enter a valid email address.</div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Phone Number</label>
+            <input id="phone" name="phone" type="tel" class="form-control" placeholder="+995 5xx xx xx xx" required>
+            <div class="invalid-feedback">Please enter a valid phone number.</div>
+          </div>
+
+          <div class="col-12 mt-2">
+            <button id="confirmBtn" type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+              Confirm Booking
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal fade" id="bookingSuccessModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-16">
+          <div class="modal-header border-0">
+            <h5 class="modal-title fw-bold">Booking Confirmed 🎉</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Your booking request has been sent successfully.</p>
+            <div class="small text-muted" id="bookingSummary"></div>
+          </div>
+          <div class="modal-footer border-0">
+            <a href="{{ url_for('home_page') }}" class="btn btn-outline-secondary">Back to Salons</a>
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript_bottom %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const stepStaff = document.getElementById('stepStaff');
+  const stepDate  = document.getElementById('stepDate');
+  const stepTime  = document.getElementById('stepTime');
+  const stepInfo  = document.getElementById('stepInfo');
+  const dateInput = document.getElementById('dateInput');
+  const noStaffMsg = document.getElementById('noStaffMsg');
+
+  // form
+  const bookingForm = document.getElementById('bookingForm');
+  const fullNameInp = document.getElementById('fullName');
+  const emailInp = document.getElementById('email');
+  const phoneInp = document.getElementById('phone');
+
+  // hidden fields
+  const hiddenService = document.getElementById('hiddenService');
+  const hiddenStaff   = document.getElementById('hiddenStaff');
+  const hiddenDate    = document.getElementById('hiddenDate');
+  const hiddenTime    = document.getElementById('hiddenTime');
+
+  const bookingSummary = document.getElementById('bookingSummary');
+
+  let selectedService = null;
+
+  function smoothScrollTo(el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function lock(el)   { el.classList.add('locked'); }
+  function unlock(el) { el.classList.remove('locked'); }
+
+  function showStaffSection() {
+    stepStaff.classList.remove('d-none');
+    stepStaff.classList.add('show');
+  }
+  function hideStaffSection() {
+    stepStaff.classList.add('d-none');
+    stepStaff.classList.remove('show');
+  }
+
+  function clearStaffSelection() {
+    document.querySelectorAll('.staff-card').forEach(card => card.classList.remove('selected'));
+    document.querySelectorAll('input[name="staff"]').forEach(inp => inp.checked = false);
+    hiddenStaff.value = "";
+  }
+
+  function clearTimeSelection() {
+    document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
+    document.querySelectorAll('input[name="time"]').forEach(inp => inp.checked = false);
+    hiddenTime.value = "";
+  }
+
+  function resetAllAfterService() {
+    clearStaffSelection();
+    dateInput.value = '';
+    hiddenDate.value = "";
+    clearTimeSelection();
+
+    hiddenService.value = "";
+
+    lock(stepDate);
+    lock(stepTime);
+    lock(stepInfo);
+
+    hideStaffSection();
+    if (noStaffMsg) noStaffMsg.classList.add('d-none');
+    document.querySelectorAll('.staff-wrapper').forEach(w => (w.style.display = 'none'));
+  }
+
+  function filterStaff(serviceName) {
+    let anyVisible = false;
+    document.querySelectorAll('.staff-wrapper').forEach(wrapper => {
+      const skills = JSON.parse(wrapper.dataset.skills || '[]');
+      const canDo = skills.includes(serviceName);
+      wrapper.style.display = canDo ? 'block' : 'none';
+      if (canDo) anyVisible = true;
+    });
+    if (noStaffMsg) noStaffMsg.classList.toggle('d-none', anyVisible);
+  }
+
+  // SERVICE (toggle select/unselect)
+  document.querySelectorAll('.service-option').forEach(option => {
+    option.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      const input = option.querySelector('input[name="service"]');
+      const serviceName = input.value;
+
+      if (selectedService === serviceName) {
+        selectedService = null;
+        document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
+        document.querySelectorAll('input[name="service"]').forEach(i => (i.checked = false));
+        resetAllAfterService();
+        return;
+      }
+
+      selectedService = serviceName;
+
+      document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
+      option.classList.add('selected');
+      document.querySelectorAll('input[name="service"]').forEach(i => (i.checked = false));
+      input.checked = true;
+
+      hiddenService.value = serviceName;
+
+      // reset below
+      clearStaffSelection();
+      dateInput.value = '';
+      hiddenDate.value = "";
+      clearTimeSelection();
+
+      unlock(stepDate);
+      lock(stepTime);
+      lock(stepInfo);
+
+      showStaffSection();
+      filterStaff(serviceName);
+
+      smoothScrollTo(stepStaff);
+    });
+  });
+
+  // STAFF (optional toggle)
+  document.querySelectorAll('.staff-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (stepStaff.classList.contains('d-none')) return;
+
+      const input = card.querySelector('input[name="staff"]');
+      const staffName = input.value;
+
+      if (input.checked) {
+        input.checked = false;
+        card.classList.remove('selected');
+        hiddenStaff.value = "";
+      } else {
+        document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
+        document.querySelectorAll('input[name="staff"]').forEach(i => (i.checked = false));
+        input.checked = true;
+        card.classList.add('selected');
+        hiddenStaff.value = staffName;
+      }
+
+      smoothScrollTo(stepDate);
+    });
+  });
+
+  // DATE unlocks TIME
+  dateInput.addEventListener('change', () => {
+    if (!selectedService) return;
+
+    hiddenDate.value = dateInput.value || "";
+
+    if (!dateInput.value) {
+      lock(stepTime);
+      lock(stepInfo);
+      clearTimeSelection();
+      return;
+    }
+
+    unlock(stepTime);
+    smoothScrollTo(stepTime);
+  });
+
+  // TIME unlocks INFO (toggle)
+  document.querySelectorAll('.time-slot').forEach(slot => {
+    slot.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (stepTime.classList.contains('locked')) return;
+
+      const input = slot.querySelector('input[name="time"]');
+      const timeVal = input.value;
+
+      if (input.checked) {
+        input.checked = false;
+        slot.classList.remove('selected');
+        hiddenTime.value = "";
+        lock(stepInfo);
+      } else {
+        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+        document.querySelectorAll('input[name="time"]').forEach(i => (i.checked = false));
+        input.checked = true;
+        slot.classList.add('selected');
+
+        hiddenTime.value = timeVal;
+        unlock(stepInfo);
+        smoothScrollTo(stepInfo);
+      }
+    });
+  });
+
+  // Validation
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email).toLowerCase());
+  }
+  function isValidPhone(phone) {
+    return /^[+]?[\d\s\-()]{7,20}$/.test(String(phone));
+  }
+  function setValidity(inputEl, ok) {
+    inputEl.classList.toggle('is-invalid', !ok);
+    inputEl.classList.toggle('is-valid', ok);
+  }
+
+  // Submit -> show modal + (optional) POST
+  bookingForm.addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  // must have service/date/time
+  const hasService = !!hiddenService.value;
+  const hasDate = !!hiddenDate.value;
+  const hasTime = !!hiddenTime.value;
+
+  const nameOk = fullNameInp.value.trim().length >= 2;
+  const emailOk = isValidEmail(emailInp.value.trim());
+  const phoneOk = isValidPhone(phoneInp.value.trim());
+
+  setValidity(fullNameInp, nameOk);
+  setValidity(emailInp, emailOk);
+  setValidity(phoneInp, phoneOk);
+
+  if (!hasService || !hasDate || !hasTime) {
+    alert("Please select service, date, and time first.");
+    return;
+  }
+  if (!nameOk || !emailOk || !phoneOk) {
+    return;
+  }
+
+  // disable button while sending
+  const confirmBtn = document.getElementById('confirmBtn');
+  const oldBtnText = confirmBtn.innerHTML;
+  confirmBtn.disabled = true;
+  confirmBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Booking...`;
+
+  try {
+    const formData = new FormData(bookingForm);
+
+    const res = await fetch(bookingForm.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        "X-Requested-With": "fetch"
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error("Server error");
+    }
+
+    const json = await res.json();
+
+    if (!json.ok) {
+      throw new Error(json.message || "Booking failed");
+    }
+
+    // build modal summary only AFTER server success
+    const staffText = hiddenStaff.value ? hiddenStaff.value : "Any staff";
+    bookingSummary.innerHTML = `
+      <div><strong>Service:</strong> ${hiddenService.value}</div>
+      <div><strong>Staff:</strong> ${staffText}</div>
+      <div><strong>Date:</strong> ${hiddenDate.value}</div>
+      <div><strong>Time:</strong> ${hiddenTime.value}</div>
+      <hr class="my-2">
+      <div><strong>Name:</strong> ${fullNameInp.value}</div>
+      <div><strong>Email:</strong> ${emailInp.value}</div>
+      <div><strong>Phone:</strong> ${phoneInp.value}</div>
+    `;
+
+    // show modal
+    const modal = new bootstrap.Modal(document.getElementById('bookingSuccessModal'));
+    modal.show();
+
+    // optional: reset form after success
+    // bookingForm.reset();
+
+  } catch (err) {
+    alert("Booking failed. Please try again.");
+    console.error(err);
+  } finally {
+    // restore button
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = oldBtnText;
+  }
+});
+
+  // Initial state
+  resetAllAfterService();
+});
+</script>
+{% endblock %}
