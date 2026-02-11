@@ -259,8 +259,14 @@ document.addEventListener('DOMContentLoaded', function () {
   let selectedService = null;
 
   function smoothScrollTo(el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
+  const offset = window.innerHeight / 2 - el.offsetHeight / 2;
+
+  window.scrollTo({
+    top: elementTop - offset,
+    behavior: 'smooth'
+  });
+}
   function lock(el)   { el.classList.add('locked'); }
   function unlock(el) { el.classList.remove('locked'); }
 
