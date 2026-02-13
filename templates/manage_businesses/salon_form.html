@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Create Salon • Stylio{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width:720px;">
+  <a href="{{ url_for('manage_businesses') }}" class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
+    <i class="bi bi-arrow-left me-2"></i> Back
+  </a>
+
+  <div class="card border-0 shadow-sm rounded-4 p-4">
+    <h3 class="fw-bold mb-3">Create Salon</h3>
+
+    <form method="POST">
+      <div class="mb-3">
+        <label class="form-label">Salon name *</label>
+        <input class="form-control" name="name" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Location</label>
+        <input class="form-control" name="location">
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" rows="3"></textarea>
+      </div>
+
+      <button class="btn btn-primary w-100 py-2 fw-semibold">
+        Create
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

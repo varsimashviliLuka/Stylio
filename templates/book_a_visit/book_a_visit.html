@@ -51,7 +51,12 @@
 
     <!-- TOP SALON CARD -->
     <div class="card shadow-sm border-0 mb-4 overflow-hidden rounded-16 reveal show">
-      {% set photos = salon.photos if salon.photos|length > 0 else ["https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png"] %}
+      {# If you haven't implemented SalonPhoto table yet, this will just show fallback image #}
+      {% set photos = salon.photos|default([], true) %}
+      {% if photos|length == 0 %}
+        {% set photos = ["https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png"] %}
+      {% endif %}
+
       <div id="bookingCarousel{{ salon.id }}" class="carousel slide" data-bs-ride="carousel">
         <div class="carousel-inner">
           {% for photo in photos %}
@@ -75,30 +80,33 @@
           <div>
             <h3 class="fw-bold mb-1">{{ salon.name }}</h3>
             <p class="text-muted mb-0">
-              <i class="bi bi-geo-alt-fill me-1 text-primary"></i>{{ salon.location }}
+              <i class="bi bi-geo-alt-fill me-1 text-primary"></i>{{ salon.location|default("", true) }}
             </p>
           </div>
 
           <div class="text-end">
-            {% if salon.average_review == 0 %}
+            {% if salon.average_review|default(0, true) == 0 %}
               <span class="text-muted fst-italic">Not reviewed yet</span>
             {% else %}
               <span class="text-warning">
-                {% for i in range(salon.average_review|int) %}<i class="bi bi-star-fill"></i>{% endfor %}
-                {% for i in range(5 - salon.average_review|int) %}<i class="bi bi-star"></i>{% endfor %}
+                {% for i in range((salon.average_review|default(0, true))|int) %}<i class="bi bi-star-fill"></i>{% endfor %}
+                {% for i in range(5 - ((salon.average_review|default(0, true))|int)) %}<i class="bi bi-star"></i>{% endfor %}
               </span>
-              <div class="small text-muted">{{ salon.review_count }} reviews</div>
+              <div class="small text-muted">{{ salon.review_count|default(0, true) }} reviews</div>
             {% endif %}
           </div>
         </div>
 
+        {% set tags = salon.tags|default([], true) %}
+        {% if tags|length > 0 %}
         <div class="mt-3">
-          {% for tag in salon.tags %}
+          {% for tag in tags %}
             <span class="badge bg-primary me-1">{{ tag }}</span>
           {% endfor %}
         </div>
+        {% endif %}
 
-        <p class="mt-3 text-muted mb-0">{{ salon.description }}</p>
+        <p class="mt-3 text-muted mb-0">{{ salon.description|default("", true) }}</p>
       </div>
     </div>
 
@@ -109,8 +117,8 @@
 
       <div class="list-group">
         {% for service in salon.services %}
-        <label class="list-group-item service-option">
-          <input type="radio" name="service" hidden value="{{ service.name }}">
+        <label class="list-group-item service-option" data-service-id="{{ service.id }}">
+          <input type="radio" name="service" hidden value="{{ service.id }}">
           <div class="d-flex justify-content-between">
             <div>
               <strong>{{ service.name }}</strong>
@@ -123,7 +131,7 @@
       </div>
     </div>
 
-    <!-- STEP 2: STAFF -->
+    <!-- STEP 2: STAFF (hidden until service selected) -->
     <div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
       <h5 class="fw-semibold mb-1">2) Select Staff Member <span class="text-muted">(Optional)</span></h5>
       <p class="text-muted mb-3">Only staff who offer the selected service will appear</p>
@@ -132,14 +140,16 @@
 
       <div class="row g-3">
         {% for staff in salon.staff %}
-        <div class="col-md-4 staff-wrapper" data-skills='{{ staff.skills | default([]) | tojson }}'>
-          <label class="staff-card w-100">
-            <input type="radio" name="staff" hidden value="{{ staff.name }}">
-            <img src="{{ staff.image }}" class="rounded-circle mb-2" width="80" height="80">
-            <h6 class="mb-0">{{ staff.name }}</h6>
-            <small class="text-muted">{{ staff.profession }}</small>
-          </label>
-        </div>
+          {% set ids = staff_service_ids.get(staff.id, []) %}
+          <div class="col-md-4 staff-wrapper" data-service-ids='{{ ids | tojson }}'>
+            <label class="staff-card w-100">
+              <input type="radio" name="staff" hidden value="{{ staff.id }}">
+              <img src="{{ staff.image or 'https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png' }}"
+                   class="rounded-circle mb-2" width="80" height="80">
+              <h6 class="mb-0">{{ staff.name }}</h6>
+              <small class="text-muted">{{ staff.profession or "" }}</small>
+            </label>
+          </div>
         {% endfor %}
       </div>
     </div>
@@ -175,8 +185,8 @@
         <!-- Hidden values filled by JS -->
         <input type="hidden" name="salon_name" value="{{ salon.name }}">
         <input type="hidden" name="salon_id" value="{{ salon.id }}">
-        <input type="hidden" name="service" id="hiddenService">
-        <input type="hidden" name="staff" id="hiddenStaff">
+        <input type="hidden" name="service" id="hiddenService">  {# service_id #}
+        <input type="hidden" name="staff" id="hiddenStaff">      {# staff_id (optional) #}
         <input type="hidden" name="date" id="hiddenDate">
         <input type="hidden" name="time" id="hiddenTime">
 
@@ -249,24 +259,22 @@ document.addEventListener('DOMContentLoaded', function () {
   const phoneInp = document.getElementById('phone');
 
   // hidden fields
-  const hiddenService = document.getElementById('hiddenService');
-  const hiddenStaff   = document.getElementById('hiddenStaff');
+  const hiddenService = document.getElementById('hiddenService'); // service_id
+  const hiddenStaff   = document.getElementById('hiddenStaff');   // staff_id
   const hiddenDate    = document.getElementById('hiddenDate');
   const hiddenTime    = document.getElementById('hiddenTime');
 
   const bookingSummary = document.getElementById('bookingSummary');
 
+  // IMPORTANT: selectedService is NUMBER (service_id)
   let selectedService = null;
 
   function smoothScrollTo(el) {
-  const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
-  const offset = window.innerHeight / 2 - el.offsetHeight / 2;
+    const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
+    const offset = window.innerHeight / 2 - el.offsetHeight / 2;
+    window.scrollTo({ top: elementTop - offset, behavior: 'smooth' });
+  }
 
-  window.scrollTo({
-    top: elementTop - offset,
-    behavior: 'smooth'
-  });
-}
   function lock(el)   { el.classList.add('locked'); }
   function unlock(el) { el.classList.remove('locked'); }
 
@@ -298,6 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
     clearTimeSelection();
 
     hiddenService.value = "";
+    selectedService = null;
 
     lock(stepDate);
     lock(stepTime);
@@ -308,41 +317,45 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.staff-wrapper').forEach(w => (w.style.display = 'none'));
   }
 
-  function filterStaff(serviceName) {
+  // ✅ filter by serviceId (NUMBER) vs staff wrapper serviceIds array
+  function filterStaff(serviceId) {
     let anyVisible = false;
+
     document.querySelectorAll('.staff-wrapper').forEach(wrapper => {
-      const skills = JSON.parse(wrapper.dataset.skills || '[]');
-      const canDo = skills.includes(serviceName);
+      const serviceIds = JSON.parse(wrapper.dataset.serviceIds || '[]'); // array of ints
+      const canDo = serviceIds.includes(serviceId);
+
       wrapper.style.display = canDo ? 'block' : 'none';
       if (canDo) anyVisible = true;
     });
+
     if (noStaffMsg) noStaffMsg.classList.toggle('d-none', anyVisible);
   }
 
-  // SERVICE (toggle select/unselect)
+  // SERVICE (toggle select/unselect) - USE serviceId number
   document.querySelectorAll('.service-option').forEach(option => {
     option.addEventListener('click', (e) => {
       e.preventDefault();
 
       const input = option.querySelector('input[name="service"]');
-      const serviceName = input.value;
+      const serviceId = parseInt(input.value, 10); // ✅ number
 
-      if (selectedService === serviceName) {
-        selectedService = null;
+      // toggle off if same service clicked
+      if (selectedService === serviceId) {
         document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
         document.querySelectorAll('input[name="service"]').forEach(i => (i.checked = false));
         resetAllAfterService();
         return;
       }
 
-      selectedService = serviceName;
+      selectedService = serviceId;
 
       document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
       option.classList.add('selected');
       document.querySelectorAll('input[name="service"]').forEach(i => (i.checked = false));
       input.checked = true;
 
-      hiddenService.value = serviceName;
+      hiddenService.value = String(serviceId); // submit service_id
 
       // reset below
       clearStaffSelection();
@@ -355,20 +368,20 @@ document.addEventListener('DOMContentLoaded', function () {
       lock(stepInfo);
 
       showStaffSection();
-      filterStaff(serviceName);
+      filterStaff(serviceId);
 
       smoothScrollTo(stepStaff);
     });
   });
 
-  // STAFF (optional toggle)
+  // STAFF (optional toggle) - store staff_id
   document.querySelectorAll('.staff-card').forEach(card => {
     card.addEventListener('click', (e) => {
       e.preventDefault();
       if (stepStaff.classList.contains('d-none')) return;
 
       const input = card.querySelector('input[name="staff"]');
-      const staffName = input.value;
+      const staffId = input.value;
 
       if (input.checked) {
         input.checked = false;
@@ -379,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('input[name="staff"]').forEach(i => (i.checked = false));
         input.checked = true;
         card.classList.add('selected');
-        hiddenStaff.value = staffName;
+        hiddenStaff.value = staffId;
       }
 
       smoothScrollTo(stepDate);
@@ -442,87 +455,78 @@ document.addEventListener('DOMContentLoaded', function () {
     inputEl.classList.toggle('is-valid', ok);
   }
 
-  // Submit -> show modal + (optional) POST
+  // Submit -> send POST -> show modal on success
   bookingForm.addEventListener('submit', async function (e) {
-  e.preventDefault();
+    e.preventDefault();
 
-  // must have service/date/time
-  const hasService = !!hiddenService.value;
-  const hasDate = !!hiddenDate.value;
-  const hasTime = !!hiddenTime.value;
+    const hasService = !!hiddenService.value;
+    const hasDate = !!hiddenDate.value;
+    const hasTime = !!hiddenTime.value;
 
-  const nameOk = fullNameInp.value.trim().length >= 2;
-  const emailOk = isValidEmail(emailInp.value.trim());
-  const phoneOk = isValidPhone(phoneInp.value.trim());
+    const nameOk = fullNameInp.value.trim().length >= 2;
+    const emailOk = isValidEmail(emailInp.value.trim());
+    const phoneOk = isValidPhone(phoneInp.value.trim());
 
-  setValidity(fullNameInp, nameOk);
-  setValidity(emailInp, emailOk);
-  setValidity(phoneInp, phoneOk);
+    setValidity(fullNameInp, nameOk);
+    setValidity(emailInp, emailOk);
+    setValidity(phoneInp, phoneOk);
 
-  if (!hasService || !hasDate || !hasTime) {
-    alert("Please select service, date, and time first.");
-    return;
-  }
-  if (!nameOk || !emailOk || !phoneOk) {
-    return;
-  }
-
-  // disable button while sending
-  const confirmBtn = document.getElementById('confirmBtn');
-  const oldBtnText = confirmBtn.innerHTML;
-  confirmBtn.disabled = true;
-  confirmBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Booking...`;
-
-  try {
-    const formData = new FormData(bookingForm);
-
-    const res = await fetch(bookingForm.action, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        "X-Requested-With": "fetch"
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error("Server error");
+    if (!hasService || !hasDate || !hasTime) {
+      alert("Please select service, date, and time first.");
+      return;
+    }
+    if (!nameOk || !emailOk || !phoneOk) {
+      return;
     }
 
-    const json = await res.json();
+    const confirmBtn = document.getElementById('confirmBtn');
+    const oldBtnText = confirmBtn.innerHTML;
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Booking...`;
 
-    if (!json.ok) {
-      throw new Error(json.message || "Booking failed");
+    try {
+      const formData = new FormData(bookingForm);
+
+      const res = await fetch(bookingForm.action, {
+        method: 'POST',
+        body: formData,
+        headers: { "X-Requested-With": "fetch" }
+      });
+
+      if (!res.ok) throw new Error("Server error");
+
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.message || "Booking failed");
+
+      // service label text from selected option
+      const selectedOption = document.querySelector('.service-option.selected');
+      const serviceText = selectedOption ? selectedOption.querySelector('strong')?.textContent : hiddenService.value;
+
+      const staffCard = document.querySelector('.staff-card.selected h6');
+      const staffText = staffCard ? staffCard.textContent : "Any staff";
+
+      bookingSummary.innerHTML = `
+        <div><strong>Service:</strong> ${serviceText}</div>
+        <div><strong>Staff:</strong> ${staffText}</div>
+        <div><strong>Date:</strong> ${hiddenDate.value}</div>
+        <div><strong>Time:</strong> ${hiddenTime.value}</div>
+        <hr class="my-2">
+        <div><strong>Name:</strong> ${fullNameInp.value}</div>
+        <div><strong>Email:</strong> ${emailInp.value}</div>
+        <div><strong>Phone:</strong> ${phoneInp.value}</div>
+      `;
+
+      const modal = new bootstrap.Modal(document.getElementById('bookingSuccessModal'));
+      modal.show();
+
+    } catch (err) {
+      alert("Booking failed. Please try again.");
+      console.error(err);
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = oldBtnText;
     }
-
-    // build modal summary only AFTER server success
-    const staffText = hiddenStaff.value ? hiddenStaff.value : "Any staff";
-    bookingSummary.innerHTML = `
-      <div><strong>Service:</strong> ${hiddenService.value}</div>
-      <div><strong>Staff:</strong> ${staffText}</div>
-      <div><strong>Date:</strong> ${hiddenDate.value}</div>
-      <div><strong>Time:</strong> ${hiddenTime.value}</div>
-      <hr class="my-2">
-      <div><strong>Name:</strong> ${fullNameInp.value}</div>
-      <div><strong>Email:</strong> ${emailInp.value}</div>
-      <div><strong>Phone:</strong> ${phoneInp.value}</div>
-    `;
-
-    // show modal
-    const modal = new bootstrap.Modal(document.getElementById('bookingSuccessModal'));
-    modal.show();
-
-    // optional: reset form after success
-    // bookingForm.reset();
-
-  } catch (err) {
-    alert("Booking failed. Please try again.");
-    console.error(err);
-  } finally {
-    // restore button
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = oldBtnText;
-  }
-});
+  });
 
   // Initial state
   resetAllAfterService();

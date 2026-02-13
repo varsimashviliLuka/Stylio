@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Skills • {{ staff.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width:720px;">
+  <a href="{{ url_for('edit_salon', salon_id=salon.id) }}" class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
+    <i class="bi bi-arrow-left me-2"></i> Back to Salon
+  </a>
+
+  <div class="card border-0 shadow-sm rounded-4 p-4">
+    <h4 class="fw-bold mb-1">Assign Skills</h4>
+    <p class="text-muted mb-4">Choose which services <strong>{{ staff.name }}</strong> can perform.</p>
+
+    {% if services|length == 0 %}
+      <div class="alert alert-info">Create services first, then you can assign them to staff.</div>
+    {% else %}
+      <form method="POST">
+        <div class="list-group mb-3">
+          {% for s in services %}
+            <label class="list-group-item d-flex align-items-center justify-content-between">
+              <div>
+                <div class="fw-semibold">{{ s.name }}</div>
+                <div class="small text-muted">{{ s.duration }} min • ${{ s.price }}</div>
+              </div>
+              <input class="form-check-input" type="checkbox" name="service_ids"
+                     value="{{ s.id }}" {% if s.id in selected_ids %}checked{% endif %}>
+            </label>
+          {% endfor %}
+        </div>
+
+        <button class="btn btn-primary w-100 py-2 fw-semibold">Save Skills</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Manage Businesses • Stylio{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Manage Businesses</h2>
+      <p class="text-muted mb-0">Create and manage your salons, staff, and services.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('create_salon') }}">
+      <i class="bi bi-plus-circle me-2"></i>Create Salon
+    </a>
+  </div>
+
+  {% if salons|length == 0 %}
+    <div class="alert alert-info">You don’t have any salons yet. Click “Create Salon”.</div>
+  {% endif %}
+
+  <div class="row g-4">
+    {% for salon in salons %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card border-0 shadow-sm h-100 rounded-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-1">{{ salon.name }}</h5>
+          <div class="text-muted small mb-2">
+            <i class="bi bi-geo-alt me-1"></i>{{ salon.location or "No location" }}
+          </div>
+          <p class="text-muted mb-3" style="min-height:48px;">
+            {{ salon.description or "No description yet." }}
+          </p>
+
+          <a class="btn btn-outline-primary w-100" href="{{ url_for('edit_salon', salon_id=salon.id) }}">
+            <i class="bi bi-pencil-square me-2"></i>Edit Salon
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

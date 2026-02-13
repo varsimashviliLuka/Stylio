@@ -6,52 +6,47 @@ Stylio • Home
 
 {% block style %}
 <style>
-  /* Modern card style */
-      .modern-card {
-        border-radius: 15px;
-        transition: transform 0.3s, box-shadow 0.3s;
-      }
-      .modern-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-      }
-
-      .card-title {
-        font-weight: 600;
-        font-size: 1.25rem;
-      }
-
-      .card-text {
-        font-size: 0.95rem;
-      }
-
-      .badge {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-      }
+  .modern-card {
+    border-radius: 15px;
+    transition: transform 0.3s, box-shadow 0.3s;
+    overflow: hidden;
+  }
+  .modern-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 1.25rem;
+  }
+  .card-text { font-size: 0.95rem; }
+  .badge { font-size: 0.75rem; text-transform: uppercase; }
+  .salon-img { height: 220px; object-fit: cover; }
 </style>
 {% endblock %}
 
-
 {% block content %}
-
-<!-- Salon Cards -->
 <div class="container my-5">
   <div class="row g-4">
     {% for salon in salons %}
     <div class="col-md-6">
       <div class="card h-100 shadow-sm border-0 modern-card">
-        
-        <!-- Carousel -->
-        {% set photos = salon.photos if salon.photos|length > 0 else ["https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png"] %}
+
+        {# photos fallback even if attribute doesn't exist #}
+        {% set photos = salon.photos|default([], true) %}
+        {% if photos|length == 0 %}
+          {% set photos = ["https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png"] %}
+        {% endif %}
+
         <div id="carousel{{ salon.id }}" class="carousel slide" data-bs-ride="carousel">
           <div class="carousel-inner">
             {% for photo in photos %}
             <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %}">
-              <img src="{{ photo }}" class="d-block w-100" alt="{{ salon.name }} photo {{ loop.index }}">
+              <img src="{{ photo }}" class="d-block w-100 salon-img" alt="{{ salon.name }} photo {{ loop.index }}">
             </div>
             {% endfor %}
           </div>
+
           {% if photos|length > 1 %}
           <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ salon.id }}" data-bs-slide="prev">
             <span class="carousel-control-prev-icon" aria-hidden="true"></span>
@@ -64,36 +59,48 @@ Stylio • Home
           {% endif %}
         </div>
 
-        <!-- Card Body -->
         <div class="card-body d-flex flex-column">
           <h5 class="card-title">{{ salon.name }}</h5>
-          <p class="card-text text-muted">{{ salon.description }}</p>
-          <p class="text-secondary mb-2"><i class="bi bi-geo-alt-fill me-1"></i>{{ salon.location }}</p>
+
+          <p class="card-text text-muted">
+            {{ salon.description|default("", true) }}
+          </p>
+
+          <p class="text-secondary mb-2">
+            <i class="bi bi-geo-alt-fill me-1"></i>{{ salon.location|default("", true) }}
+          </p>
+
+          {# tags safe fallback even if attribute doesn't exist #}
+          {% set tags = salon.tags|default([], true) %}
+          {% if tags|length > 0 %}
           <div class="mb-2">
-            {% for tag in salon.tags %}
-            <span class="badge bg-primary me-1">{{ tag }}</span>
+            {% for tag in tags %}
+              <span class="badge bg-primary me-1">{{ tag }}</span>
             {% endfor %}
           </div>
-          
-          <!-- Reviews -->
+          {% endif %}
+
+          {# reviews safe fallback even if attribute doesn't exist #}
           <div class="d-flex justify-content-between align-items-center mb-3">
-            {% if salon.average_review == 0 %}
+            {% set avg = salon.average_review|default(0, true) %}
+            {% set count = salon.review_count|default(0, true) %}
+
+            {% if avg|float == 0 %}
               <span class="text-muted fst-italic">Not reviewed yet</span>
             {% else %}
               <span class="text-warning">
-                {% for i in range(salon.average_review|int) %}
+                {% for i in range(avg|int) %}
                   <i class="bi bi-star-fill"></i>
                 {% endfor %}
-                {% for i in range(5 - salon.average_review|int) %}
+                {% for i in range(5 - (avg|int)) %}
                   <i class="bi bi-star"></i>
                 {% endfor %}
               </span>
-              <small class="text-muted">{{ salon.review_count }} reviews</small>
+              <small class="text-muted">{{ count }} reviews</small>
             {% endif %}
           </div>
 
-          <!-- Book Button -->
-           <a href="{{ url_for('book_a_visit',id=salon.id) }}" class="btn btn-primary mt-auto">
+          <a href="{{ url_for('book_a_visit', id=salon.id) }}" class="btn btn-primary mt-auto">
             <i class="bi bi-calendar-check me-2"></i>Book a Visit
           </a>
         </div>
@@ -103,8 +110,4 @@ Stylio • Home
     {% endfor %}
   </div>
 </div>
-
 {% endblock %}
-
-
-

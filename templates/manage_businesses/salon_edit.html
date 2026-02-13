@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Edit • {{ salon.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width:980px;">
+  <a href="{{ url_for('manage_businesses') }}" class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
+    <i class="bi bi-arrow-left me-2"></i> Back to Manage Businesses
+  </a>
+
+  <div class="row g-4">
+    <!-- Left: Salon info -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <h4 class="fw-bold mb-3">Salon Details</h4>
+
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" value="{{ salon.name }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Location</label>
+            <input class="form-control" name="location" value="{{ salon.location or '' }}">
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="4">{{ salon.description or '' }}</textarea>
+          </div>
+
+          <button class="btn btn-primary w-100 py-2 fw-semibold">
+            Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right: Services + Staff -->
+    <div class="col-lg-7">
+      <!-- Services -->
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold mb-0">Services</h5>
+        </div>
+
+        <form method="POST" action="{{ url_for('add_service', salon_id=salon.id) }}" class="row g-2 mb-3">
+          <div class="col-md-6">
+            <input class="form-control" name="name" placeholder="Service name (e.g. Haircut)" required>
+          </div>
+          <div class="col-md-3">
+            <input class="form-control" name="duration" type="number" min="5" placeholder="Duration" required>
+          </div>
+          <div class="col-md-3">
+            <input class="form-control" name="price" type="number" min="0" placeholder="Price" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-outline-primary w-100">
+              <i class="bi bi-plus-circle me-2"></i>Add Service
+            </button>
+          </div>
+        </form>
+
+        {% if services|length == 0 %}
+          <p class="text-muted mb-0">No services yet.</p>
+        {% else %}
+          <div class="list-group">
+            {% for s in services %}
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="fw-semibold">{{ s.name }}</div>
+                  <div class="small text-muted">{{ s.duration }} min • ${{ s.price }}</div>
+                </div>
+                <form method="POST" action="{{ url_for('delete_service', salon_id=salon.id, service_id=s.id) }}">
+                  <button class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Staff -->
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <h5 class="fw-bold mb-3">Staff</h5>
+
+        <form method="POST" action="{{ url_for('add_staff', salon_id=salon.id) }}" class="row g-2 mb-3">
+          <div class="col-md-4">
+            <input class="form-control" name="name" placeholder="Full name" required>
+          </div>
+          <div class="col-md-4">
+            <input class="form-control" name="profession" placeholder="Profession (e.g. Barber)">
+          </div>
+          <div class="col-md-4">
+            <input class="form-control" name="image" placeholder="Image URL (optional)">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-outline-primary w-100">
+              <i class="bi bi-plus-circle me-2"></i>Add Staff
+            </button>
+          </div>
+        </form>
+
+        {% if staff|length == 0 %}
+          <p class="text-muted mb-0">No staff yet.</p>
+        {% else %}
+          <div class="list-group">
+            {% for st in staff %}
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                  <img src="{{ st.image or 'https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png' }}"
+                       style="width:44px;height:44px;object-fit:cover;" class="rounded-circle">
+                  <div>
+                    <div class="fw-semibold">{{ st.name }}</div>
+                    <div class="small text-muted">{{ st.profession or "—" }}</div>
+                  </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                  <a class="btn btn-sm btn-outline-primary"
+                     href="{{ url_for('staff_skills', salon_id=salon.id, staff_id=st.id) }}">
+                    Skills
+                  </a>
+
+                  <form method="POST" action="{{ url_for('delete_staff', salon_id=salon.id, staff_id=st.id) }}">
+                    <button class="btn btn-sm btn-outline-danger">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
