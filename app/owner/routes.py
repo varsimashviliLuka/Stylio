@@ -42,16 +42,29 @@ def create_salon():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         location = request.form.get("location", "").strip()
+        map_link = request.form.get("map_link", "").strip()
         description = request.form.get("description", "").strip()
 
         if not name:
             flash("Salon name is required.", "danger")
             return redirect(url_for("owner.create_salon"))
 
+        # ✅ Optional: basic allowlist so only Google Maps links are saved
+        if map_link:
+            allowed_prefixes = (
+                "https://maps.app.goo.gl/",
+                "https://www.google.com/maps",
+                "https://goo.gl/maps",
+            )
+            if not map_link.startswith(allowed_prefixes):
+                flash("Please paste a valid Google Maps link.", "danger")
+                return redirect(url_for("owner.create_salon"))
+
         salon = Salon(
             owner_user_id=current_user.id,
             name=name,
             location=location,
+            map_link=map_link or None,
             description=description
         )
         db.session.add(salon)
@@ -72,7 +85,20 @@ def edit_salon(salon_id):
     if request.method == "POST":
         salon.name = request.form.get("name", "").strip()
         salon.location = request.form.get("location", "").strip()
+        salon.map_link = request.form.get("map_link", "").strip() or None
         salon.description = request.form.get("description", "").strip()
+
+        # ✅ Optional: basic allowlist so only Google Maps links are saved
+        if salon.map_link:
+            allowed_prefixes = (
+                "https://maps.app.goo.gl/",
+                "https://www.google.com/maps",
+                "https://goo.gl/maps",
+            )
+            if not salon.map_link.startswith(allowed_prefixes):
+                flash("Please paste a valid Google Maps link.", "danger")
+                return redirect(url_for("owner.edit_salon", salon_id=salon.id))
+
         db.session.commit()
         flash("Salon updated.", "success")
         return redirect(url_for("owner.edit_salon", salon_id=salon.id))

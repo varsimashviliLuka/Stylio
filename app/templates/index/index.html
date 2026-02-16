@@ -76,9 +76,20 @@ Stylio • Home
             {{ salon.description|default("", true) }}
           </p>
 
-          <p class="text-secondary mb-2">
-            <i class="bi bi-geo-alt-fill me-1"></i>{{ salon.location|default("", true) }}
-          </p>
+         {% if salon.map_link %}
+  <a
+    href="{{ salon.map_link }}"
+    target="_blank"
+    rel="noopener"
+    class="text-secondary mb-2 text-decoration-none d-inline-flex align-items-center"
+  >
+    <i class="bi bi-geo-alt-fill me-1"></i>{{ salon.location|default("View on map", true) }}
+  </a>
+{% else %}
+  <p class="text-secondary mb-2">
+    <i class="bi bi-geo-alt-fill me-1"></i>{{ salon.location|default("", true) }}
+  </p>
+{% endif %}
 
           {# tags #}
           {% set tags = salon.tags|default([], true) %}

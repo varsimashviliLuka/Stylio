@@ -80,9 +80,22 @@
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
           <div>
             <h3 class="fw-bold mb-1">{{ salon.name }}</h3>
-            <p class="text-muted mb-0">
-              <i class="bi bi-geo-alt-fill me-1 text-primary"></i>{{ salon.location|default("", true) }}
-            </p>
+
+            {% if salon.map_link %}
+              <a
+                href="{{ salon.map_link }}"
+                target="_blank"
+                rel="noopener"
+                class="text-muted text-decoration-none d-inline-flex align-items-center"
+              >
+                <i class="bi bi-geo-alt-fill me-1 text-primary"></i>
+                {{ salon.location|default("View on map", true) }}
+              </a>
+            {% else %}
+              <p class="text-muted mb-0">
+                <i class="bi bi-geo-alt-fill me-1 text-primary"></i>{{ salon.location|default("", true) }}
+              </p>
+            {% endif %}
           </div>
 
           <div class="text-end">
@@ -132,49 +145,49 @@
       </div>
     </div>
 
-   <!-- STEP 2: STAFF -->
-<div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
-  <h5 class="fw-semibold mb-1">2) Select Staff Member <span class="text-muted">(Optional)</span></h5>
-  <p class="text-muted mb-3">Only staff who offer the selected service will appear</p>
+    <!-- STEP 2: STAFF -->
+    <div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
+      <h5 class="fw-semibold mb-1">2) Select Staff Member <span class="text-muted">(Optional)</span></h5>
+      <p class="text-muted mb-3">Only staff who offer the selected service will appear</p>
 
-  <p id="noStaffMsg" class="text-muted fst-italic d-none mb-3">No staff available for this service.</p>
+      <p id="noStaffMsg" class="text-muted fst-italic d-none mb-3">No staff available for this service.</p>
 
-  <div class="row g-3">
-    {% for staff in salon.staff %}
-      {% set ids = staff_service_ids.get(staff.id, []) %}
-      <div class="col-md-4 staff-wrapper" data-service-ids='{{ ids | tojson }}'>
-        <label class="staff-card w-100">
-          <input type="radio" name="staff" hidden value="{{ staff.id }}">
+      <div class="row g-3">
+        {% for staff in salon.staff %}
+          {% set ids = staff_service_ids.get(staff.id, []) %}
+          <div class="col-md-4 staff-wrapper" data-service-ids='{{ ids | tojson }}'>
+            <label class="staff-card w-100">
+              <input type="radio" name="staff" hidden value="{{ staff.id }}">
 
-          {% set fallback = "https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png" %}
+              {% set fallback = "https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png" %}
 
-          {# ✅ Decide which image to show #}
-          {% if staff.photo_path %}
-            {# staff.photo_path is stored like "uploads/staff/xxx.webp" #}
-            {% set img_src = url_for('static', filename=staff.photo_path.lstrip('/')) %}
-          {% elif staff.image %}
-            {# optional external url field #}
-            {% set img_src = staff.image %}
-          {% else %}
-            {% set img_src = fallback %}
-          {% endif %}
+              {# ✅ Decide which image to show #}
+              {% if staff.photo_path %}
+                {# staff.photo_path is stored like "uploads/staff/xxx.webp" #}
+                {% set img_src = url_for('static', filename=staff.photo_path.lstrip('/')) %}
+              {% elif staff.image %}
+                {# optional external url field #}
+                {% set img_src = staff.image %}
+              {% else %}
+                {% set img_src = fallback %}
+              {% endif %}
 
-          <img
-            src="{{ img_src }}?v={{ staff.id }}"
-            class="rounded-circle mb-2"
-            width="80"
-            height="80"
-            style="object-fit: cover;"
-            alt="{{ staff.name }}"
-          >
+              <img
+                src="{{ img_src }}?v={{ staff.id }}"
+                class="rounded-circle mb-2"
+                width="80"
+                height="80"
+                style="object-fit: cover;"
+                alt="{{ staff.name }}"
+              >
 
-          <h6 class="mb-0">{{ staff.name }}</h6>
-          <small class="text-muted">{{ staff.profession or "" }}</small>
-        </label>
+              <h6 class="mb-0">{{ staff.name }}</h6>
+              <small class="text-muted">{{ staff.profession or "" }}</small>
+            </label>
+          </div>
+        {% endfor %}
       </div>
-    {% endfor %}
-  </div>
-</div>
+    </div>
 
     <!-- STEP 3: DATE -->
     <div id="stepDate" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">

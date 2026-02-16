@@ -31,6 +31,7 @@ class Salon(db.Model):
     name = db.Column(db.String(160), nullable=False)
     description = db.Column(db.Text, nullable=True)
     location = db.Column(db.String(200), nullable=True)
+    map_link = db.Column(db.String(500), nullable=True)
 
     services = db.relationship("Service", backref="salon", cascade="all, delete-orphan", lazy=True)
     staff = db.relationship("Staff", backref="salon", cascade="all, delete-orphan", lazy=True)
