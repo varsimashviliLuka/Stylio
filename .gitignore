@@ -35,6 +35,8 @@ instance/
 flask_session/
 *.log
 logs/
+uploads/
+
 
 # =========================
 # Environment Variables

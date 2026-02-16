@@ -1,19 +1,62 @@
 {% extends 'base.html' %}
 {% block title %}Edit • {{ salon.name }}{% endblock %}
 
+{% block style %}
+<style>
+  .photo-tile {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    background: #fff;
+  }
+  .photo-tile img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-actions {
+    position: absolute;
+    inset: auto 10px 10px 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chip {
+    background: rgba(255,255,255,.92);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #dee2e6;
+  }
+  .tiny-btn {
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .muted-hint { font-size: 13px; color: #6c757d; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container my-5" style="max-width:980px;">
-  <a href="{{ url_for('manage_businesses') }}" class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
+
+  <a href="{{ url_for('owner.manage_businesses') }}"
+     class="text-decoration-none text-muted d-inline-flex align-items-center mb-4">
     <i class="bi bi-arrow-left me-2"></i> Back to Manage Businesses
   </a>
 
   <div class="row g-4">
-    <!-- Left: Salon info -->
+    <!-- Left: Salon info + Salon Photos -->
     <div class="col-lg-5">
-      <div class="card border-0 shadow-sm rounded-4 p-4">
+
+      <!-- Salon details -->
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
         <h4 class="fw-bold mb-3">Salon Details</h4>
 
-        <form method="POST">
+        <form method="POST" action="{{ url_for('owner.edit_salon', salon_id=salon.id) }}">
           <div class="mb-3">
             <label class="form-label">Name</label>
             <input class="form-control" name="name" value="{{ salon.name }}" required>
@@ -30,29 +73,102 @@
           </div>
 
           <button class="btn btn-primary w-100 py-2 fw-semibold">
-            Save Changes
+            <i class="bi bi-save2 me-2"></i>Save Changes
           </button>
         </form>
       </div>
+
+      <!-- Salon photos -->
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <h5 class="fw-bold mb-1">Salon Photos</h5>
+            <div class="muted-hint">Max 5 photos. Choose a “Main” photo to show first in the carousel.</div>
+          </div>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('owner.upload_salon_photo', salon_id=salon.id) }}"
+              enctype="multipart/form-data"
+              class="d-flex gap-2 align-items-center mb-3">
+          <input class="form-control" type="file" name="photo" accept="image/*" required>
+          <button class="btn btn-outline-primary flex-shrink-0">
+            <i class="bi bi-upload me-1"></i>Upload
+          </button>
+        </form>
+
+        {% if salon.photos and salon.photos|length > 0 %}
+          <div class="row g-3">
+            {% for p in salon.photos %}
+
+              {# normalize salon photo path for static #}
+              {% set rawp = p.file_path %}
+              {% if rawp.startswith('/static/') %}
+                {% set rawp = rawp.replace('/static/', '', 1) %}
+              {% endif %}
+              {% if rawp.startswith('static/') %}
+                {% set rawp = rawp.replace('static/', '', 1) %}
+              {% endif %}
+              {% if rawp.startswith('uploads/') %}
+                {% set p_rel = rawp %}
+              {% elif rawp.startswith('salons/') %}
+                {% set p_rel = 'uploads/' ~ rawp %}
+              {% else %}
+                {% set p_rel = rawp %}
+              {% endif %}
+              {% set p_src = url_for('static', filename=p_rel) ~ '?v=' ~ p.id %}
+
+              <div class="col-6">
+                <div class="photo-tile">
+                  <img src="{{ p_src }}" alt="Salon photo {{ loop.index }}">
+
+                  <div class="photo-actions">
+                    {% if p.is_main %}
+                      <span class="chip"><i class="bi bi-star-fill text-warning me-1"></i>Main</span>
+                    {% else %}
+                      <form method="POST" action="{{ url_for('owner.set_main_salon_photo', salon_id=salon.id, photo_id=p.id) }}">
+                        <button class="btn btn-sm btn-light tiny-btn">
+                          <i class="bi bi-star me-1"></i>Make main
+                        </button>
+                      </form>
+                    {% endif %}
+
+                    <form method="POST" action="{{ url_for('owner.delete_salon_photo', salon_id=salon.id, photo_id=p.id) }}">
+                      <button class="btn btn-sm btn-outline-danger tiny-btn"
+                              onclick="return confirm('Delete this photo?')">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted">No photos yet. Upload your first photo (it will become the main photo automatically).</div>
+        {% endif %}
+      </div>
+
     </div>
 
     <!-- Right: Services + Staff -->
     <div class="col-lg-7">
+
       <!-- Services -->
       <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="fw-bold mb-0">Services</h5>
         </div>
 
-        <form method="POST" action="{{ url_for('add_service', salon_id=salon.id) }}" class="row g-2 mb-3">
+        <form method="POST" action="{{ url_for('owner.add_service', salon_id=salon.id) }}" class="row g-2 mb-3">
           <div class="col-md-6">
             <input class="form-control" name="name" placeholder="Service name (e.g. Haircut)" required>
           </div>
           <div class="col-md-3">
-            <input class="form-control" name="duration" type="number" min="5" placeholder="Duration" required>
+            <input class="form-control" name="duration" type="number" min="5" placeholder="Min" value="60" required>
           </div>
           <div class="col-md-3">
-            <input class="form-control" name="price" type="number" min="0" placeholder="Price" required>
+            <input class="form-control" name="price" type="number" min="0" placeholder="Price" value="0" required>
           </div>
           <div class="col-12">
             <button class="btn btn-outline-primary w-100">
@@ -71,8 +187,8 @@
                   <div class="fw-semibold">{{ s.name }}</div>
                   <div class="small text-muted">{{ s.duration }} min • ${{ s.price }}</div>
                 </div>
-                <form method="POST" action="{{ url_for('delete_service', salon_id=salon.id, service_id=s.id) }}">
-                  <button class="btn btn-sm btn-outline-danger">
+                <form method="POST" action="{{ url_for('owner.delete_service', salon_id=salon.id, service_id=s.id) }}">
+                  <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete service?')">
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
@@ -86,7 +202,8 @@
       <div class="card border-0 shadow-sm rounded-4 p-4">
         <h5 class="fw-bold mb-3">Staff</h5>
 
-        <form method="POST" action="{{ url_for('add_staff', salon_id=salon.id) }}" class="row g-2 mb-3">
+        <!-- Add staff -->
+        <form method="POST" action="{{ url_for('owner.add_staff', salon_id=salon.id) }}" class="row g-2 mb-3">
           <div class="col-md-4">
             <input class="form-control" name="name" placeholder="Full name" required>
           </div>
@@ -94,7 +211,7 @@
             <input class="form-control" name="profession" placeholder="Profession (e.g. Barber)">
           </div>
           <div class="col-md-4">
-            <input class="form-control" name="image" placeholder="Image URL (optional)">
+            <input class="form-control" name="image" placeholder="External Image URL (optional)">
           </div>
           <div class="col-12">
             <button class="btn btn-outline-primary w-100">
@@ -108,29 +225,91 @@
         {% else %}
           <div class="list-group">
             {% for st in staff %}
-              <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-3">
-                  <img src="{{ st.image or 'https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png' }}"
-                       style="width:44px;height:44px;object-fit:cover;" class="rounded-circle">
-                  <div>
-                    <div class="fw-semibold">{{ st.name }}</div>
-                    <div class="small text-muted">{{ st.profession or "—" }}</div>
+
+            {# ---------- staff image normalize (supports uploads/... and /static/... etc.) ---------- #}
+            {% set img_src = "https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png" %}
+
+            {% if st.photo_path %}
+              {% set raw = st.photo_path %}
+
+              {# strip leading slash #}
+              {% if raw.startswith('/') %}
+                {% set raw = raw[1:] %}
+              {% endif %}
+
+              {# if someone accidentally stored 'static/uploads/...' or '/static/uploads/...' #}
+              {% if raw.startswith('static/') %}
+                {% set raw = raw.replace('static/', '', 1) %}
+              {% endif %}
+              {% if raw.startswith('uploads/') %}
+                {% set rel = raw %}
+              {% else %}
+                {# if stored as 'staff/...' or 'salons/...' then prefix uploads/ #}
+                {% set rel = 'uploads/' ~ raw %}
+              {% endif %}
+
+              {% set img_src = url_for('static', filename=rel) %}
+
+            {% elif st.image %}
+              {% set img_src = st.image %}
+            {% endif %}
+              <script>console.log('DEBUG photo_path: {{ st.photo_path }}')</script>
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+
+                  <div class="d-flex align-items-center gap-3">
+                    <img src="{{ img_src }}?v={{ st.photo_path or st.id }}"
+                      style="width:44px;height:44px;object-fit:cover;"
+                      class="rounded-circle">
+
+                    <div>
+                      <div class="fw-semibold">{{ st.name }}</div>
+                      <div class="small text-muted">{{ st.profession or "—" }}</div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex gap-2 align-items-center flex-wrap">
+
+                    <!-- Upload staff photo -->
+                    <form method="POST"
+                          action="{{ url_for('owner.upload_staff_photo', salon_id=salon.id, staff_id=st.id) }}"
+                          enctype="multipart/form-data"
+                          class="d-flex gap-2 align-items-center">
+                      <input class="form-control form-control-sm" type="file" name="photo" accept="image/*" required>
+                      <button class="btn btn-sm btn-outline-primary" title="Upload photo">
+                        <i class="bi bi-upload"></i>
+                      </button>
+                    </form>
+
+                    <!-- Skills -->
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="{{ url_for('owner.staff_skills', salon_id=salon.id, staff_id=st.id) }}">
+                      <i class="bi bi-diagram-3 me-1"></i>Skills
+                    </a>
+
+                    <!-- Delete staff -->
+                    <form method="POST" action="{{ url_for('owner.delete_staff', salon_id=salon.id, staff_id=st.id) }}">
+                      <button class="btn btn-sm btn-outline-danger"
+                              onclick="return confirm('Delete staff member?')">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+
+                    <!-- Delete uploaded staff photo -->
+                    {% if st.photo_path %}
+                      <form method="POST"
+                            action="{{ url_for('owner.delete_staff_photo', salon_id=salon.id, staff_id=st.id) }}">
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('Delete uploaded staff photo?')">
+                          <i class="bi bi-trash"></i> Photo
+                        </button>
+                      </form>
+                    {% endif %}
+
                   </div>
                 </div>
-
-                <div class="d-flex gap-2">
-                  <a class="btn btn-sm btn-outline-primary"
-                     href="{{ url_for('staff_skills', salon_id=salon.id, staff_id=st.id) }}">
-                    Skills
-                  </a>
-
-                  <form method="POST" action="{{ url_for('delete_staff', salon_id=salon.id, staff_id=st.id) }}">
-                    <button class="btn btn-sm btn-outline-danger">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                  </form>
-                </div>
               </div>
+
             {% endfor %}
           </div>
         {% endif %}

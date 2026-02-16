@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Register • Stylio{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width:520px;">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="fw-bold mb-0">Create account</h3>
+    <a class="text-decoration-none" href="{{ url_for('main.home_page') }}">
+      <i class="bi bi-arrow-left"></i> Home
+    </a>
+  </div>
+
+  <form method="POST" class="card p-4 shadow-sm border-0">
+    <div class="mb-3">
+      <label class="form-label">Full name</label>
+      <input name="full_name" class="form-control" required autocomplete="name">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input name="email" type="email" class="form-control" required autocomplete="email">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input name="password" type="password" class="form-control" required autocomplete="new-password" minlength="6">
+      <div class="form-text">Use at least 6 characters.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Account type</label>
+      <select name="role" class="form-select">
+        <option value="customer">Customer</option>
+        <option value="owner">Business Owner</option>
+      </select>
+      <div class="form-text">
+        Business Owners can create salons, staff, and services later in “Manage Businesses”.
+      </div>
+    </div>
+
+    <button class="btn btn-primary w-100">
+      <i class="bi bi-person-plus me-2"></i>Register
+    </button>
+
+    <div class="mt-3 text-center">
+      <a href="{{ url_for('auth.login') }}">Already have an account?</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
