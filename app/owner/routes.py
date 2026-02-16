@@ -158,8 +158,21 @@ def delete_staff(salon_id, staff_id):
     if staff.salon_id != salon.id:
         abort(403)
 
+    # ✅ Delete uploaded photo file from disk first
+    if staff.photo_path:
+        try:
+            # photo_path is stored like: "uploads/staff/xxx.webp"
+            safe_delete_file(
+                base_dir=current_app.config["UPLOAD_FOLDER"],  # should point to static/uploads
+                rel_path=staff.photo_path.replace("uploads/", "", 1)
+            )
+        except Exception as e:
+            print("Failed to delete staff photo file:", e, flush=True)
+
+    # ✅ Then delete database record
     db.session.delete(staff)
     db.session.commit()
+
     flash("Staff deleted.", "success")
     return redirect(url_for("owner.edit_salon", salon_id=salon.id))
 
