@@ -13,48 +13,232 @@
     <!-- LEFT: SALON DETAILS + PHOTOS -->
     <div class="col-lg-5">
 
-<!-- SALON DETAILS -->
-<div class="card p-4 shadow-sm border-0 rounded-4 mb-4">
-  <h4 class="fw-bold mb-3">Salon Details</h4>
+      <!-- SALON DETAILS -->
+      <div class="card p-4 shadow-sm border-0 rounded-4 mb-4">
+        <h4 class="fw-bold mb-3">Salon Details</h4>
 
-  <form method="POST">
-    <div class="mb-3">
-      <label class="form-label">Name</label>
-      <input name="name" class="form-control" value="{{ salon.name }}" required>
-    </div>
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input name="name" class="form-control" value="{{ salon.name }}" required>
+          </div>
 
-    <div class="mb-3">
-      <label class="form-label">Location (text)</label>
-      <input
-        name="location"
-        class="form-control"
-        value="{{ salon.location or '' }}"
-        placeholder="e.g. Tbilisi, Rustaveli Ave 10"
-      >
-    </div>
+          <div class="mb-3">
+            <label class="form-label">Location (text)</label>
+            <input
+              name="location"
+              class="form-control"
+              value="{{ salon.location or '' }}"
+              placeholder="e.g. Tbilisi, Rustaveli Ave 10"
+            >
+          </div>
 
-    <div class="mb-3">
-      <label class="form-label">Google Maps link</label>
-      <input
-        name="map_link"
-        type="url"
-        class="form-control"
-        value="{{ salon.map_link or '' }}"
-        placeholder="Paste Google Maps link (https://maps.app.goo.gl/... or https://www.google.com/maps...)"
-      >
-      <div class="form-text">Optional. If provided, the location will be clickable on the homepage.</div>
-    </div>
+          <div class="mb-3">
+            <label class="form-label">Google Maps link</label>
+            <input
+              name="map_link"
+              type="url"
+              class="form-control"
+              value="{{ salon.map_link or '' }}"
+              placeholder="Paste Google Maps link (https://maps.app.goo.gl/... or https://www.google.com/maps...)"
+            >
+            <div class="form-text">Optional. If provided, the location will be clickable on the homepage.</div>
+          </div>
 
-    <div class="mb-3">
-      <label class="form-label">Description</label>
-      <textarea name="description" class="form-control" rows="3">{{ salon.description or '' }}</textarea>
-    </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="3">{{ salon.description or '' }}</textarea>
+          </div>
 
-    <button class="btn btn-primary w-100">
-      <i class="bi bi-save2 me-2"></i>Save
-    </button>
-  </form>
-</div>
+          <button class="btn btn-primary w-100">
+            <i class="bi bi-save2 me-2"></i>Save
+          </button>
+        </form>
+      </div>
+
+      <!-- ===== PASTE START: SALON WORKING HOURS ===== -->
+      <div class="card p-4 shadow-sm border-0 rounded-4 mb-4">
+        <h5 class="fw-bold mb-3">
+          <i class="bi bi-clock me-2 text-primary"></i>Working Hours
+        </h5>
+
+        {% set day_names = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
+        {% set times = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"] %}
+
+        <form method="POST" action="{{ url_for('owner.save_salon_weekly_hours', salon_id=salon.id) }}">
+          <div class="table-responsive">
+            <table class="table align-middle mb-2">
+              <thead>
+                <tr class="text-muted small">
+                  <th style="width: 90px;">Day</th>
+                  <th style="width: 90px;">Closed</th>
+                  <th>From</th>
+                  <th>To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for wd in range(7) %}
+                  {% set row = weekly_hours.get(wd) if weekly_hours else {"is_closed": false, "start":"09:00", "end":"19:00"} %}
+                  <tr>
+                    <td class="fw-semibold">
+                      <i class="bi bi-calendar-event me-1 text-primary"></i>{{ day_names[wd] }}
+                    </td>
+                    <td>
+                      <div class="form-check">
+                        <input class="form-check-input closed-toggle"
+                              type="checkbox"
+                              name="closed_{{ wd }}"
+                              id="closed_{{ wd }}"
+                              {% if row.is_closed %}checked{% endif %}
+                              data-wd="{{ wd }}">
+                      </div>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm time-start" name="start_{{ wd }}" data-wd="{{ wd }}">
+                        {% for t in times %}
+                          <option value="{{ t }}" {% if row.start == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm time-end" name="end_{{ wd }}" data-wd="{{ wd }}">
+                        {% for t in times %}
+                          <option value="{{ t }}" {% if row.end == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="form-text mb-3">
+            Tip: Mark a day as <strong>Closed</strong> to make it a non-working day. You can also set Sunday to shorter hours (e.g. 09:00–13:00).
+          </div>
+
+          <button class="btn btn-primary w-100">
+            <i class="bi bi-save2 me-2"></i>Save Working Hours
+          </button>
+        </form>
+      </div>
+
+      <div class="card p-4 shadow-sm border-0 rounded-4 mb-4">
+        <h5 class="fw-bold mb-3">
+          <i class="bi bi-calendar-x me-2 text-primary"></i>Special Days (Overrides)
+        </h5>
+
+        <form method="POST" action="{{ url_for('owner.set_salon_special_day', salon_id=salon.id) }}" class="mb-3">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small mb-1">Date</label>
+              <input type="date" name="day" class="form-control form-control-sm" required>
+            </div>
+
+            <div class="col-12">
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" name="is_closed" id="specialClosed">
+                <label class="form-check-label" for="specialClosed">
+                  Closed (non-working day)
+                </label>
+              </div>
+            </div>
+
+            <div class="col-6">
+              <label class="form-label small mb-1">From</label>
+              <select class="form-select form-select-sm" name="start">
+                {% for t in times %}
+                  <option value="{{ t }}" {% if t == "09:00" %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-6">
+              <label class="form-label small mb-1">To</label>
+              <select class="form-select form-select-sm" name="end">
+                {% for t in times %}
+                  <option value="{{ t }}" {% if t == "19:00" %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-12">
+              <button class="btn btn-outline-primary w-100" type="submit">
+                <i class="bi bi-plus-circle me-2"></i>Add / Update Special Day
+              </button>
+            </div>
+          </div>
+
+          <div class="form-text mt-2">
+            Special days override weekly schedule (e.g. “Closed on this date” or “Sunday only 09:00–13:00 on this specific date”).
+          </div>
+        </form>
+
+        {% if special_days and special_days|length > 0 %}
+          <div class="d-flex flex-column gap-2">
+            {% for s in special_days %}
+              <div class="border rounded-3 px-2 py-2 d-flex justify-content-between align-items-center">
+                <div class="small">
+                  <span class="fw-semibold">
+                    <i class="bi bi-calendar-event me-1 text-primary"></i>{{ s.day }}
+                  </span>
+                  {% if s.is_closed %}
+                    <span class="badge bg-secondary ms-2"><i class="bi bi-x-circle me-1"></i>Closed</span>
+                  {% else %}
+                    <span class="ms-2 text-muted">
+                      <i class="bi bi-clock me-1"></i>{{ s.start_time }} – {{ s.end_time }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <form method="POST"
+                      action="{{ url_for('owner.delete_salon_special_day', salon_id=salon.id, special_id=s.id) }}"
+                      onsubmit="return confirm('Delete this special day?')">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">No special days yet.</div>
+        {% endif %}
+      </div>
+
+      <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        function syncRow(wd) {
+          const closed = document.getElementById("closed_" + wd);
+          const startSel = document.querySelector('.time-start[data-wd="' + wd + '"]');
+          const endSel = document.querySelector('.time-end[data-wd="' + wd + '"]');
+
+          if (!closed || !startSel || !endSel) return;
+
+          const disabled = closed.checked;
+          startSel.disabled = disabled;
+          endSel.disabled = disabled;
+        }
+
+        document.querySelectorAll(".closed-toggle").forEach(cb => {
+          syncRow(cb.dataset.wd);
+          cb.addEventListener("change", () => syncRow(cb.dataset.wd));
+        });
+
+        // Special day: if Closed checked, disable time selects
+        const specialClosed = document.getElementById("specialClosed");
+        if (specialClosed) {
+          const selects = Array.from(document.querySelectorAll('select[name="start"], select[name="end"]'));
+          function syncSpecial() {
+            const disabled = specialClosed.checked;
+            selects.forEach(s => s.disabled = disabled);
+          }
+          syncSpecial();
+          specialClosed.addEventListener("change", syncSpecial);
+        }
+      });
+      </script>
+      <!-- ===== PASTE END: SALON WORKING HOURS ===== -->
 
       <!-- SALON PHOTOS -->
       <div class="card p-4 shadow-sm border-0 rounded-4">
@@ -94,10 +278,8 @@
           <div class="row g-2">
             {% for p in photos %}
 
-              {# --- Normalize salon photo path to something url_for('static', filename=...) can use --- #}
               {% set rawp = p.file_path|default('', true) %}
 
-              {# If someone stored with /static/... or static/... strip that #}
               {% if rawp.startswith('/static/') %}
                 {% set rawp = rawp.replace('/static/', '', 1) %}
               {% endif %}
@@ -105,13 +287,11 @@
                 {% set rawp = rawp.replace('static/', '', 1) %}
               {% endif %}
 
-              {# If stored as "salons/xxx.webp", convert to "uploads/salons/xxx.webp" #}
               {% if rawp.startswith('salons/') %}
                 {% set p_rel = 'uploads/' ~ rawp %}
               {% elif rawp.startswith('uploads/') %}
                 {% set p_rel = rawp %}
               {% else %}
-                {# last resort: assume it is already relative #}
                 {% set p_rel = rawp %}
               {% endif %}
 
@@ -169,10 +349,10 @@
             <input name="name" class="form-control" placeholder="Service name" required>
           </div>
           <div class="col-md-3">
-            <input name="duration" type="number" class="form-control" placeholder="Min" value="60">
+            <input name="duration" type="number" class="form-control" placeholder="Min">
           </div>
           <div class="col-md-2">
-            <input name="price" type="number" class="form-control" placeholder="$" value="0">
+            <input name="price" type="number" class="form-control" placeholder="₾">
           </div>
           <div class="col-md-2 d-grid">
             <button class="btn btn-outline-primary">
@@ -233,7 +413,6 @@
           {% for st in staff %}
           <div class="list-group-item">
 
-            {# ✅ FIX: use st.photo_path (NOT st.image_path) #}
             {% set placeholder = "https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png" %}
 
             {% if st.photo_path %}
@@ -252,6 +431,7 @@
                   width="56" height="56"
                   class="rounded-circle"
                   style="object-fit:cover;"
+                  alt="{{ st.name }}"
                 >
                 <div>
                   <div class="fw-semibold">{{ st.name }}</div>
@@ -259,7 +439,21 @@
                 </div>
               </div>
 
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 flex-wrap justify-content-end">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#unavailModal"
+                  data-staff-id="{{ st.id }}"
+                  data-staff-name="{{ st.name }}"
+                  data-day=""
+                  data-all-day="0"
+                  data-times=""
+                >
+                  <i class="bi bi-calendar3 me-1"></i>Unavailability
+                </button>
+
                 <a class="btn btn-sm btn-outline-primary"
                    href="{{ url_for('owner.staff_skills', salon_id=salon.id, staff_id=st.id) }}">
                   <i class="bi bi-diagram-3 me-1"></i>Skills
@@ -299,6 +493,74 @@
               {% endif %}
             </div>
 
+            {# ✅ Grouped day cards (one per day) #}
+            {% set daymap = (staff_day_blocks.get(st.id, {}) if staff_day_blocks else {}) %}
+            <div class="mt-3">
+              <div class="small fw-semibold mb-2">
+                <i class="bi bi-clock-history me-1"></i>Unavailable windows
+              </div>
+
+              {% if daymap|length == 0 %}
+                <div class="text-muted small">No unavailability set yet.</div>
+              {% else %}
+                <div class="d-flex flex-column gap-2">
+                  {% for day, info in daymap|dictsort(true) %}
+                    <div class="border rounded-3 px-2 py-2">
+                      <div class="d-flex justify-content-between align-items-center gap-2">
+                        <div class="fw-semibold small d-flex align-items-center gap-2">
+                          <span class="text-primary">
+                            <i class="bi bi-calendar-event"></i>
+                          </span>
+                          <span>{{ day }}</span>
+
+                          {% if info.all_day %}
+                            <span class="badge bg-secondary ms-1">
+                              <i class="bi bi-brightness-high me-1"></i>All day
+                            </span>
+                          {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2">
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#unavailModal"
+                            data-staff-id="{{ st.id }}"
+                            data-staff-name="{{ st.name }}"
+                            data-day="{{ day }}"
+                            data-all-day="{{ '1' if info.all_day else '0' }}"
+                            data-times="{{ info.times|join(',') }}"
+                          >
+                            <i class="bi bi-pencil-square"></i>
+                          </button>
+
+                          <form method="POST"
+                                action="{{ url_for('owner.clear_staff_unavailability_day', salon_id=salon.id, staff_id=st.id, day_str=day|string) }}"
+                                onsubmit="return confirm('Clear unavailability for this day?')">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">
+                              <i class="bi bi-trash"></i>
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+
+                      {% if not info.all_day %}
+                        <div class="mt-2 d-flex flex-wrap gap-2">
+                          {% for t in info.times %}
+                            <span class="badge text-bg-light border">
+                              <i class="bi bi-clock me-1"></i>{{ t }}
+                            </span>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+
           </div>
           {% endfor %}
         </div>
@@ -308,4 +570,289 @@
   </div>
 
 </div>
+
+<!-- Unavailability Modal (multi-select + edit) -->
+<div class="modal fade" id="unavailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header border-0">
+        <div>
+          <h5 class="modal-title fw-bold mb-0">Set Unavailability</h5>
+          <div class="small text-muted" id="unavailStaffName">Staff</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form id="unavailForm" method="POST">
+        <div class="modal-body pt-0">
+
+          <div class="mb-3">
+            <label class="form-label">Day *</label>
+            <input id="unavailDay" name="day" type="date" class="form-control" required>
+            <div class="form-text">
+              Select one or more times. If you leave times empty, it will save as <strong>All day</strong>.
+            </div>
+
+            <div id="salonClosedMsg" class="alert alert-danger py-2 px-3 d-none mt-2 mb-0 small">
+              This date is <strong>closed</strong> for the salon. Please pick another date.
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Times (optional)</label>
+            <div class="small text-muted" id="hoursHint"></div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2" id="timeGrid">
+            {% for time in ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"] %}
+              <button type="button" class="time-pill btn btn-outline-secondary btn-sm" data-time="{{ time }}">
+                {{ time }}
+              </button>
+            {% endfor %}
+          </div>
+
+          <div class="mt-3 d-flex gap-2">
+            <button type="button" id="clearTimesBtn" class="btn btn-sm btn-outline-secondary">
+              Clear times (All day)
+            </button>
+          </div>
+
+          <!-- hidden selected times will be injected here before submit -->
+          <div id="hiddenTimes"></div>
+
+        </div>
+
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check2-circle me-1"></i>Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .time-pill.active {
+    border-color: #0d6efd !important;
+    background: #f5f9ff !important;
+    color: #0d6efd !important;
+  }
+</style>
+
+<!-- Data for JS (pure JSON, VS Code friendly) -->
+<script id="weeklyHoursData" type="application/json">{{ weekly_hours|tojson }}</script>
+<script id="specialDaysData" type="application/json">
+{
+  {% for s in special_days %}
+    "{{ s.day }}": {
+      "is_closed": {{ "true" if s.is_closed else "false" }},
+      "start": {{ (s.start_time|tojson) if not s.is_closed else "null" }},
+      "end": {{ (s.end_time|tojson) if not s.is_closed else "null" }}
+    }{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const modalEl = document.getElementById("unavailModal");
+  const form = document.getElementById("unavailForm");
+  const staffNameEl = document.getElementById("unavailStaffName");
+  const dayInput = document.getElementById("unavailDay");
+  const hiddenTimesWrap = document.getElementById("hiddenTimes");
+  const clearBtn = document.getElementById("clearTimesBtn");
+  const timeBtns = Array.from(document.querySelectorAll("#timeGrid .time-pill"));
+  const closedMsg = document.getElementById("salonClosedMsg");
+  const hoursHint = document.getElementById("hoursHint");
+
+  // This stays Jinja (one line). VS Code may still underline THIS line only.
+  // If you want ZERO red lines, put this into a data-attr instead. (See note below)
+  const dummyUrl = "{{ url_for('owner.set_staff_unavailability', salon_id=salon.id, staff_id=0) }}";
+
+  // ✅ Load backend JSON safely
+  function parseJsonFromScript(id) {
+    const el = document.getElementById(id);
+    if (!el) return {};
+    try { return JSON.parse(el.textContent || "{}"); }
+    catch (e) { console.error("Bad JSON in", id, e); return {}; }
+  }
+
+  const weeklyHours = parseJsonFromScript("weeklyHoursData");   // {0..6:{is_closed,start,end}}
+  const specialDays = parseJsonFromScript("specialDaysData");   // {"YYYY-MM-DD":{is_closed,start,end}}
+
+  function clearSelectedTimesUI() {
+    timeBtns.forEach(btn => btn.classList.remove("active"));
+  }
+
+  function setSelectedTimes(timesArr) {
+    const set = new Set(timesArr || []);
+    timeBtns.forEach(btn => {
+      const t = btn.dataset.time;
+      btn.classList.toggle("active", set.has(t));
+    });
+  }
+
+  function getSelectedTimes() {
+    return timeBtns
+      .filter(btn => btn.classList.contains("active") && !btn.classList.contains("d-none"))
+      .map(btn => btn.dataset.time);
+  }
+
+  function injectHiddenTimes(timesArr) {
+    hiddenTimesWrap.innerHTML = "";
+    (timesArr || []).forEach(t => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "times";
+      input.value = t;
+      hiddenTimesWrap.appendChild(input);
+    });
+  }
+
+  function getHoursForDate(dateStr) {
+    // ✅ Special override
+    if (specialDays && specialDays[dateStr]) {
+      const s = specialDays[dateStr];
+      if (s.is_closed) return { is_closed: true, start: null, end: null };
+      return {
+        is_closed: false,
+        start: s.start || "09:00",
+        end: s.end || "19:00"
+      };
+    }
+
+    // ✅ Weekly fallback
+    const d = new Date(dateStr + "T00:00:00");
+    const jsDay = d.getDay();         // 0=Sun..6=Sat
+    const wd = (jsDay + 6) % 7;       // -> 0=Mon..6=Sun
+
+    const row = weeklyHours[String(wd)] || weeklyHours[wd];
+    if (!row) return { is_closed: false, start: "09:00", end: "19:00" };
+
+    if (row.is_closed) return { is_closed: true, start: null, end: null };
+
+    return {
+      is_closed: false,
+      start: row.start || "09:00",
+      end: row.end || "19:00"
+    };
+  }
+
+  function showAllTimes() {
+    timeBtns.forEach(btn => btn.classList.remove("d-none"));
+  }
+
+  function filterTimesByHours(start, end) {
+    // show only start <= t < end
+    timeBtns.forEach(btn => {
+      const t = btn.dataset.time;
+      const ok = (start <= t && t < end);
+      btn.classList.toggle("d-none", !ok);
+      if (!ok) btn.classList.remove("active"); // drop invalid selections
+    });
+  }
+
+  function updateUIForSelectedDay() {
+    const dateStr = dayInput.value;
+
+    clearSelectedTimesUI();
+    showAllTimes();
+
+    if (hoursHint) hoursHint.textContent = "";
+
+    if (!dateStr) {
+      if (closedMsg) closedMsg.classList.add("d-none");
+      return;
+    }
+
+    const hours = getHoursForDate(dateStr);
+
+    if (hours.is_closed) {
+      if (closedMsg) closedMsg.classList.remove("d-none");
+      // clear invalid date
+      dayInput.value = "";
+      showAllTimes();
+      if (hoursHint) hoursHint.textContent = "";
+      return;
+    }
+
+    if (closedMsg) closedMsg.classList.add("d-none");
+
+    filterTimesByHours(hours.start, hours.end);
+    if (hoursHint) hoursHint.textContent = `Salon hours: ${hours.start}–${hours.end}`;
+  }
+
+  // Multi-select time pills
+  timeBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("d-none")) return;
+      btn.classList.toggle("active");
+    });
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => clearSelectedTimesUI());
+  }
+
+  dayInput.addEventListener("change", updateUIForSelectedDay);
+
+  modalEl.addEventListener("show.bs.modal", function (event) {
+    const btn = event.relatedTarget;
+    if (!btn) return;
+
+    const staffId = btn.getAttribute("data-staff-id");
+    const staffName = btn.getAttribute("data-staff-name") || "Staff";
+    const day = btn.getAttribute("data-day") || "";
+    const allDay = btn.getAttribute("data-all-day") === "1";
+    const timesCsv = btn.getAttribute("data-times") || "";
+
+    staffNameEl.textContent = staffName;
+    form.action = dummyUrl.replace("/0/", "/" + staffId + "/");
+
+    hiddenTimesWrap.innerHTML = "";
+
+    // reset
+    dayInput.value = day;
+    showAllTimes();
+    clearSelectedTimesUI();
+    if (closedMsg) closedMsg.classList.add("d-none");
+    if (hoursHint) hoursHint.textContent = "";
+
+    // apply day filter (blocks closed dates + filters times)
+    if (dayInput.value) updateUIForSelectedDay();
+
+    // restore selection when editing (not all-day)
+    if (!allDay) {
+      const timesArr = timesCsv
+        ? timesCsv.split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const visibleSet = new Set(
+        timeBtns.filter(b => !b.classList.contains("d-none")).map(b => b.dataset.time)
+      );
+
+      setSelectedTimes(timesArr.filter(t => visibleSet.has(t)));
+    }
+  });
+
+  form.addEventListener("submit", function (e) {
+    // If date got cleared because salon closed that day
+    if (!dayInput.value) {
+      e.preventDefault();
+      if (closedMsg) {
+        closedMsg.classList.remove("d-none");
+        closedMsg.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
+    }
+
+    // Empty times => all-day (backend treats it as all-day)
+    injectHiddenTimes(getSelectedTimes());
+  });
+});
+</script>
+
+
 {% endblock %}

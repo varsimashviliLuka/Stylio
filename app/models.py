@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.sql import func
 from sqlalchemy.orm import validates
 
+from sqlalchemy import UniqueConstraint
+
 from .extensions import db
 
 
@@ -46,6 +48,18 @@ class Salon(db.Model):
         order_by="SalonPhoto.is_main.desc(), SalonPhoto.id.asc()"
     )
 
+    working_hours = db.relationship(
+        "SalonWorkingHours",
+        cascade="all, delete-orphan",
+        lazy=True
+    )
+
+    special_hours = db.relationship(
+        "SalonSpecialHours",
+        cascade="all, delete-orphan",
+        lazy=True
+    )
+
     @property
     def review_count(self):
         return len(self.reviews) if self.reviews else 0
@@ -67,6 +81,42 @@ class Salon(db.Model):
                 return p
         return self.photos[0]  # fallback
 
+class SalonWorkingHours(db.Model):
+    __tablename__ = "salon_working_hours"
+
+    id = db.Column(db.Integer, primary_key=True)
+    salon_id = db.Column(db.Integer, db.ForeignKey("salon.id"), nullable=False)
+
+    # 0=Mon ... 6=Sun
+    weekday = db.Column(db.Integer, nullable=False)
+
+    is_closed = db.Column(db.Boolean, nullable=False, default=False)
+
+    # store as "09:00"
+    start_time = db.Column(db.String(5), nullable=True)
+    end_time = db.Column(db.String(5), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("salon_id", "weekday", name="uq_salon_weekday"),
+    )
+
+
+class SalonSpecialHours(db.Model):
+    __tablename__ = "salon_special_hours"
+
+    id = db.Column(db.Integer, primary_key=True)
+    salon_id = db.Column(db.Integer, db.ForeignKey("salon.id"), nullable=False)
+
+    day = db.Column(db.Date, nullable=False)
+
+    # If closed => start/end are ignored
+    is_closed = db.Column(db.Boolean, nullable=False, default=False)
+    start_time = db.Column(db.String(5), nullable=True)
+    end_time = db.Column(db.String(5), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("salon_id", "day", name="uq_salon_day"),
+    )
 
 class SalonPhoto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -133,3 +183,22 @@ class Staff(db.Model):
 class StaffService(db.Model):
     staff_id = db.Column(db.Integer, db.ForeignKey("staff.id"), primary_key=True)
     service_id = db.Column(db.Integer, db.ForeignKey("service.id"), primary_key=True)
+
+class StaffAvailability(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    staff_id = db.Column(db.Integer, db.ForeignKey("staff.id"), nullable=False, index=True)
+
+    # required day
+    day = db.Column(db.Date, nullable=False, index=True)
+
+    # optional time: if NULL => whole day
+    time = db.Column(db.String(10), nullable=True)  # "09:00", "10:00", ...
+
+    created_at = db.Column(db.DateTime, server_default=func.now())
+
+    staff = db.relationship("Staff", backref=db.backref("availability", cascade="all, delete-orphan", lazy=True))
+
+    @property
+    def is_all_day(self):
+        return self.time is None or str(self.time).strip() == ""

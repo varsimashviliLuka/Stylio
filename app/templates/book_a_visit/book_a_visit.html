@@ -26,13 +26,30 @@
   .time-slot {
     border: 1px solid #dee2e6; border-radius: 12px; padding: 8px 16px;
     cursor: pointer; transition: 0.3s; font-weight: 500; user-select: none;
+    display: inline-flex; align-items: center; gap: 8px;
   }
   .time-slot:hover { background: #f5f9ff; }
+
+  .time-slot.disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
 
   .locked { opacity: .55; pointer-events: none; }
 
   input, textarea, select { cursor: text !important; }
   button, a, label.service-option, .staff-card, .time-slot { cursor: pointer; }
+
+  .hours-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.9rem;
+  }
 </style>
 {% endblock %}
 
@@ -120,6 +137,41 @@
         </div>
         {% endif %}
 
+                {# ✅ Working hours preview #}
+{% set hours_lines = salon_hours_lines.get(salon.id, []) if salon_hours_lines else [] %}
+{% if hours_lines|length > 0 %}
+  <div class="small text-muted mb-2">
+    <div class="fw-semibold text-secondary mb-1">
+      <i class="bi bi-clock me-1"></i>Working hours
+    </div>
+
+    {% for line in hours_lines %}
+      <div class="d-flex align-items-start gap-2">
+        <span class="text-secondary">•</span>
+        <span>{{ line }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{# ✅ Special days preview (upcoming) #}
+{% set spec_lines = salon_special_lines.get(salon.id, []) if salon_special_lines else [] %}
+{% if spec_lines|length > 0 %}
+  <div class="small mb-2">
+    <div class="fw-semibold text-secondary mb-1">
+      <i class="bi bi-calendar-event me-1"></i>Special days
+    </div>
+
+    {% for line in spec_lines %}
+      <div class="d-flex align-items-start gap-2">
+        <span class="text-secondary">•</span>
+        <span>{{ line }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+
         <p class="mt-3 text-muted mb-0">{{ salon.description|default("", true) }}</p>
       </div>
     </div>
@@ -145,12 +197,23 @@
       </div>
     </div>
 
-    <!-- STEP 2: STAFF -->
-    <div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
-      <h5 class="fw-semibold mb-1">2) Select Staff Member <span class="text-muted">(Optional)</span></h5>
-      <p class="text-muted mb-3">Only staff who offer the selected service will appear</p>
+    <!-- ✅ STEP 2: DATE (moved to 2nd) -->
+    <div id="stepDate" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">
+      <h5 class="fw-semibold mb-1">2) Select Date</h5>
+      <p class="text-muted mb-3">Choose your preferred appointment date</p>
+      <input id="dateInput" type="date" class="form-control">
 
-      <p id="noStaffMsg" class="text-muted fst-italic d-none mb-3">No staff available for this service.</p>
+      <div id="closedDayMsg" class="small text-danger mt-2 d-none">
+        This salon is closed on the selected date. Please choose another day.
+      </div>
+    </div>
+
+    <!-- ✅ STEP 3: STAFF -->
+    <div id="stepStaff" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal d-none">
+      <h5 class="fw-semibold mb-1">3) Select Staff Member</h5>
+      <p class="text-muted mb-3">Only staff who offer the service and are not off all-day on that date will appear</p>
+
+      <p id="noStaffMsg" class="text-muted fst-italic d-none mb-3">No staff available for this service on this date.</p>
 
       <div class="row g-3">
         {% for staff in salon.staff %}
@@ -160,13 +223,9 @@
               <input type="radio" name="staff" hidden value="{{ staff.id }}">
 
               {% set fallback = "https://e-macc.com/wp-content/uploads/2023/03/image-not-available-41955.png" %}
-
-              {# ✅ Decide which image to show #}
               {% if staff.photo_path %}
-                {# staff.photo_path is stored like "uploads/staff/xxx.webp" #}
                 {% set img_src = url_for('static', filename=staff.photo_path.lstrip('/')) %}
               {% elif staff.image %}
-                {# optional external url field #}
                 {% set img_src = staff.image %}
               {% else %}
                 {% set img_src = fallback %}
@@ -189,26 +248,26 @@
       </div>
     </div>
 
-    <!-- STEP 3: DATE -->
-    <div id="stepDate" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">
-      <h5 class="fw-semibold mb-1">3) Select Date</h5>
-      <p class="text-muted mb-3">Choose your preferred appointment date</p>
-      <input id="dateInput" type="date" class="form-control">
-    </div>
-
-    <!-- STEP 4: TIME -->
+    <!-- ✅ STEP 4: TIME (show salon hours for that day; block only staff-unavailable times) -->
     <div id="stepTime" class="card p-4 shadow-sm border-0 mb-4 rounded-16 reveal show locked">
-      <h5 class="fw-semibold mb-1">4) Select Time</h5>
-      <p class="text-muted mb-3">Choose your preferred time slot</p>
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <h5 class="fw-semibold mb-1">4) Select Time</h5>
+          <p class="text-muted mb-0">Choose your preferred time slot</p>
+        </div>
 
-      <div class="d-flex flex-wrap gap-2">
-        {% for time in ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00"] %}
-        <label class="time-slot">
-          <input type="radio" name="time" hidden value="{{ time }}">
-          <span>{{ time }}</span>
-        </label>
-        {% endfor %}
+        <div id="salonHoursPill" class="hours-pill d-none">
+          <i class="bi bi-clock text-primary"></i>
+          <span class="text-muted">Hours:</span>
+          <span id="salonHoursText" class="fw-semibold"></span>
+        </div>
       </div>
+
+      <div id="timeSlots" class="d-flex flex-wrap gap-2 mt-3"></div>
+
+      <p id="timeHelp" class="small text-muted mt-2 mb-0 d-none">
+        Some times are unavailable for selected staff.
+      </p>
     </div>
 
     <!-- STEP 5: USER INFO -->
@@ -276,15 +335,26 @@
 </div>
 {% endblock %}
 
-{# ✅ keep your existing JS as-is below #}
 {% block javascript_bottom %}
+<!-- ✅ Pass server data safely as JSON -->
+<script id="bookingData" type="application/json">
+{{ {
+  "weekly_hours": weekly_hours or {},
+  "special_days": special_days or {},
+  "staff_day_blocks": staff_day_blocks or {},
+  "staff_service_ids": staff_service_ids or {}
+} | tojson }}
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const stepStaff = document.getElementById('stepStaff');
   const stepDate  = document.getElementById('stepDate');
+  const stepStaff = document.getElementById('stepStaff');
   const stepTime  = document.getElementById('stepTime');
   const stepInfo  = document.getElementById('stepInfo');
+
   const dateInput = document.getElementById('dateInput');
+  const closedDayMsg = document.getElementById('closedDayMsg');
   const noStaffMsg = document.getElementById('noStaffMsg');
 
   const bookingForm = document.getElementById('bookingForm');
@@ -299,25 +369,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const bookingSummary = document.getElementById('bookingSummary');
 
+  const timeSlotsWrap = document.getElementById('timeSlots');
+  const timeHelp = document.getElementById('timeHelp');
+
+  const salonHoursPill = document.getElementById('salonHoursPill');
+  const salonHoursText = document.getElementById('salonHoursText');
+
+  // ✅ read JSON payload
+  const BOOKING_DATA_EL = document.getElementById("bookingData");
+  const BOOKING_DATA = BOOKING_DATA_EL ? JSON.parse(BOOKING_DATA_EL.textContent) : {};
+
+  const WEEKLY_HOURS = BOOKING_DATA.weekly_hours || {};
+  const SPECIAL_DAYS = BOOKING_DATA.special_days || {};
+  const STAFF_DAY_BLOCKS = BOOKING_DATA.staff_day_blocks || {};
+  const STAFF_SERVICE_IDS = BOOKING_DATA.staff_service_ids || {};
+
+  // full time options (hourly) — supports 06:00–23:00 (you can adjust)
+  const FULL_TIMES = [];
+  for (let h = 6; h <= 23; h++) FULL_TIMES.push(String(h).padStart(2, '0') + ':00');
+
   let selectedService = null;
 
   function smoothScrollTo(el) {
+    if (!el) return;
     const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
     const offset = window.innerHeight / 2 - el.offsetHeight / 2;
     window.scrollTo({ top: elementTop - offset, behavior: 'smooth' });
   }
 
-  function lock(el)   { el.classList.add('locked'); }
-  function unlock(el) { el.classList.remove('locked'); }
+  function lock(el)   { if (el) el.classList.add('locked'); }
+  function unlock(el) { if (el) el.classList.remove('locked'); }
 
-  function showStaffSection() {
-    stepStaff.classList.remove('d-none');
-    stepStaff.classList.add('show');
-  }
-  function hideStaffSection() {
-    stepStaff.classList.add('d-none');
-    stepStaff.classList.remove('show');
-  }
+  function show(el) { if (el) { el.classList.remove('d-none'); el.classList.add('show'); } }
+  function hide(el) { if (el) { el.classList.add('d-none'); el.classList.remove('show'); } }
 
   function clearStaffSelection() {
     document.querySelectorAll('.staff-card').forEach(card => card.classList.remove('selected'));
@@ -326,43 +410,167 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function clearTimeSelection() {
-    document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
-    document.querySelectorAll('input[name="time"]').forEach(inp => inp.checked = false);
     hiddenTime.value = "";
+    if (timeSlotsWrap) timeSlotsWrap.innerHTML = "";
+    if (timeHelp) timeHelp.classList.add('d-none');
   }
 
-  function resetAllAfterService() {
+  function clearHoursPill() {
+    if (salonHoursPill) salonHoursPill.classList.add('d-none');
+    if (salonHoursText) salonHoursText.textContent = "";
+  }
+
+  function ymdToWeekday(ymd) {
+    const d = new Date(ymd + "T00:00:00");
+    const js = d.getDay(); // 0=Sun..6=Sat
+    return (js + 6) % 7;   // 0=Mon..6=Sun
+  }
+
+  function getSalonHoursForDate(ymd) {
+    // special overrides first (SPECIAL_DAYS should be { "YYYY-MM-DD": {is_closed, start, end} })
+    if (SPECIAL_DAYS && SPECIAL_DAYS[ymd]) return SPECIAL_DAYS[ymd];
+
+    const wd = ymdToWeekday(ymd);
+    const row = (WEEKLY_HOURS && (WEEKLY_HOURS[wd] || WEEKLY_HOURS[String(wd)]))
+      ? (WEEKLY_HOURS[wd] || WEEKLY_HOURS[String(wd)])
+      : null;
+
+    if (!row) return { is_closed: false, start: "09:00", end: "19:00" };
+
+    return {
+      is_closed: !!row.is_closed,
+      start: row.start || "09:00",
+      end: row.end || "19:00",
+    };
+  }
+
+  function isTimeInRange(t, start, end) {
+    // start inclusive, end exclusive (09:00–19:00 => last selectable slot 18:00)
+    return (t >= start) && (t < end);
+  }
+
+  function staffAllDayUnavailable(staffId, ymd) {
+    const sid = String(staffId);
+    if (!STAFF_DAY_BLOCKS || !STAFF_DAY_BLOCKS[sid] || !STAFF_DAY_BLOCKS[sid][ymd]) return false;
+    return !!STAFF_DAY_BLOCKS[sid][ymd].all_day;
+  }
+
+  function staffUnavailableTimes(staffId, ymd) {
+    const sid = String(staffId);
+    if (!STAFF_DAY_BLOCKS || !STAFF_DAY_BLOCKS[sid] || !STAFF_DAY_BLOCKS[sid][ymd]) return [];
+    if (STAFF_DAY_BLOCKS[sid][ymd].all_day) return FULL_TIMES.slice();
+    return (STAFF_DAY_BLOCKS[sid][ymd].times || []).map(String);
+  }
+
+  function filterStaffByServiceAndDate(serviceId, ymd) {
+    let anyVisible = false;
+
+    document.querySelectorAll('.staff-wrapper').forEach(wrapper => {
+      const staffRadio = wrapper.querySelector('input[name="staff"]');
+      if (!staffRadio) return;
+
+      const staffId = parseInt(staffRadio.value, 10);
+
+      const canDoService = (STAFF_SERVICE_IDS[String(staffId)] || []).includes(serviceId);
+      const allDayBlocked = staffAllDayUnavailable(staffId, ymd);
+
+      const showIt = canDoService && !allDayBlocked;
+      wrapper.style.display = showIt ? 'block' : 'none';
+      if (showIt) anyVisible = true;
+    });
+
+    if (noStaffMsg) noStaffMsg.classList.toggle('d-none', anyVisible);
+    return anyVisible;
+  }
+
+  function renderTimeSlots(ymd, staffIdOrNull) {
+    clearTimeSelection();
+    clearHoursPill();
+
+    const hours = getSalonHoursForDate(ymd);
+    if (!hours || hours.is_closed) return;
+
+    // ✅ show salon hours for that day
+    if (salonHoursPill && salonHoursText) {
+      salonHoursText.textContent = `${hours.start} – ${hours.end}`;
+      salonHoursPill.classList.remove('d-none');
+    }
+
+    const allowed = FULL_TIMES.filter(t => isTimeInRange(t, hours.start, hours.end));
+    const blocked = staffIdOrNull ? new Set(staffUnavailableTimes(staffIdOrNull, ymd)) : new Set();
+
+    allowed.forEach(t => {
+      const label = document.createElement('label');
+      label.className = 'time-slot';
+      label.innerHTML = `
+        <input type="radio" name="time" hidden value="${t}">
+        <i class="bi bi-clock text-primary"></i>
+        <span>${t}</span>
+      `;
+
+      const input = label.querySelector('input');
+      const isBlocked = staffIdOrNull ? blocked.has(t) : false;
+
+      if (isBlocked) {
+        label.classList.add('disabled');
+        input.disabled = true;
+      }
+
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (stepTime && stepTime.classList.contains('locked')) return;
+        if (input.disabled) return;
+
+        const already = input.checked;
+
+        document.querySelectorAll('#timeSlots .time-slot').forEach(s => s.classList.remove('selected'));
+        document.querySelectorAll('#timeSlots input[name="time"]').forEach(i => i.checked = false);
+
+        if (already) {
+          hiddenTime.value = "";
+          lock(stepInfo);
+        } else {
+          input.checked = true;
+          label.classList.add('selected');
+          hiddenTime.value = t;
+          unlock(stepInfo);
+          smoothScrollTo(stepInfo);
+        }
+      });
+
+      if (timeSlotsWrap) timeSlotsWrap.appendChild(label);
+    });
+
+    if (staffIdOrNull) {
+      const hasBlocked = allowed.some(t => blocked.has(t));
+      if (timeHelp) timeHelp.classList.toggle('d-none', !hasBlocked);
+    } else {
+      if (timeHelp) timeHelp.classList.add('d-none');
+    }
+  }
+
+  function resetAfterService() {
     clearStaffSelection();
-    dateInput.value = '';
+    if (dateInput) dateInput.value = '';
     hiddenDate.value = "";
     clearTimeSelection();
+    clearHoursPill();
 
     hiddenService.value = "";
     selectedService = null;
 
     lock(stepDate);
+    lock(stepStaff);
     lock(stepTime);
     lock(stepInfo);
 
-    hideStaffSection();
+    hide(stepStaff);
     if (noStaffMsg) noStaffMsg.classList.add('d-none');
     document.querySelectorAll('.staff-wrapper').forEach(w => (w.style.display = 'none'));
+    if (closedDayMsg) closedDayMsg.classList.add('d-none');
   }
 
-  function filterStaff(serviceId) {
-    let anyVisible = false;
-
-    document.querySelectorAll('.staff-wrapper').forEach(wrapper => {
-      const serviceIds = JSON.parse(wrapper.dataset.serviceIds || '[]');
-      const canDo = serviceIds.includes(serviceId);
-
-      wrapper.style.display = canDo ? 'block' : 'none';
-      if (canDo) anyVisible = true;
-    });
-
-    if (noStaffMsg) noStaffMsg.classList.toggle('d-none', anyVisible);
-  }
-
+  // ✅ Step 1: service -> unlock date (2nd step)
   document.querySelectorAll('.service-option').forEach(option => {
     option.addEventListener('click', (e) => {
       e.preventDefault();
@@ -370,10 +578,11 @@ document.addEventListener('DOMContentLoaded', function () {
       const input = option.querySelector('input[name="service"]');
       const serviceId = parseInt(input.value, 10);
 
+      // toggle off
       if (selectedService === serviceId) {
         document.querySelectorAll('.service-option').forEach(o => o.classList.remove('selected'));
         document.querySelectorAll('input[name="service"]').forEach(i => (i.checked = false));
-        resetAllAfterService();
+        resetAfterService();
         return;
       }
 
@@ -386,88 +595,113 @@ document.addEventListener('DOMContentLoaded', function () {
 
       hiddenService.value = String(serviceId);
 
+      // reset downstream
       clearStaffSelection();
-      dateInput.value = '';
+      if (dateInput) dateInput.value = '';
       hiddenDate.value = "";
       clearTimeSelection();
+      clearHoursPill();
+      if (closedDayMsg) closedDayMsg.classList.add('d-none');
 
       unlock(stepDate);
+      lock(stepStaff);
       lock(stepTime);
       lock(stepInfo);
 
-      showStaffSection();
-      filterStaff(serviceId);
-
-      smoothScrollTo(stepStaff);
-    });
-  });
-
-  document.querySelectorAll('.staff-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (stepStaff.classList.contains('d-none')) return;
-
-      const input = card.querySelector('input[name="staff"]');
-      const staffId = input.value;
-
-      if (input.checked) {
-        input.checked = false;
-        card.classList.remove('selected');
-        hiddenStaff.value = "";
-      } else {
-        document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
-        document.querySelectorAll('input[name="staff"]').forEach(i => (i.checked = false));
-        input.checked = true;
-        card.classList.add('selected');
-        hiddenStaff.value = staffId;
-      }
+      hide(stepStaff);
+      if (noStaffMsg) noStaffMsg.classList.add('d-none');
+      document.querySelectorAll('.staff-wrapper').forEach(w => (w.style.display = 'none'));
 
       smoothScrollTo(stepDate);
     });
   });
 
-  dateInput.addEventListener('change', () => {
-    if (!selectedService) return;
+  // ✅ Step 2: date -> must be open -> show staff (step 3)
+  if (dateInput) {
+    dateInput.addEventListener('change', () => {
+      if (!selectedService) return;
 
-    hiddenDate.value = dateInput.value || "";
+      const ymd = dateInput.value || "";
+      hiddenDate.value = ymd;
 
-    if (!dateInput.value) {
+      clearStaffSelection();
+      clearTimeSelection();
+      clearHoursPill();
       lock(stepTime);
       lock(stepInfo);
-      clearTimeSelection();
-      return;
-    }
 
-    unlock(stepTime);
-    smoothScrollTo(stepTime);
-  });
+      if (!ymd) {
+        lock(stepStaff);
+        hide(stepStaff);
+        if (closedDayMsg) closedDayMsg.classList.add('d-none');
+        return;
+      }
 
-  document.querySelectorAll('.time-slot').forEach(slot => {
-    slot.addEventListener('click', (e) => {
+      const hours = getSalonHoursForDate(ymd);
+      if (!hours || hours.is_closed) {
+        lock(stepStaff);
+        hide(stepStaff);
+        if (closedDayMsg) closedDayMsg.classList.remove('d-none');
+        return;
+      }
+
+      if (closedDayMsg) closedDayMsg.classList.add('d-none');
+
+      // show + filter staff
+      show(stepStaff);
+      unlock(stepStaff);
+
+      const anyStaff = filterStaffByServiceAndDate(selectedService, ymd);
+      smoothScrollTo(stepStaff);
+
+      if (!anyStaff) {
+        lock(stepTime);
+        lock(stepInfo);
+      }
+    });
+  }
+
+  // ✅ Step 3: staff -> unlock time (step 4)
+  document.querySelectorAll('.staff-card').forEach(card => {
+    card.addEventListener('click', (e) => {
       e.preventDefault();
-      if (stepTime.classList.contains('locked')) return;
+      if (stepStaff && stepStaff.classList.contains('d-none')) return;
+      if (stepStaff && stepStaff.classList.contains('locked')) return;
 
-      const input = slot.querySelector('input[name="time"]');
-      const timeVal = input.value;
+      const input = card.querySelector('input[name="staff"]');
+      if (!input) return;
 
+      const staffId = parseInt(input.value, 10);
+      const ymd = hiddenDate.value;
+      if (!ymd) return;
+
+      // toggle selection
       if (input.checked) {
         input.checked = false;
-        slot.classList.remove('selected');
-        hiddenTime.value = "";
-        lock(stepInfo);
-      } else {
-        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
-        document.querySelectorAll('input[name="time"]').forEach(i => (i.checked = false));
-        input.checked = true;
-        slot.classList.add('selected');
+        card.classList.remove('selected');
+        hiddenStaff.value = "";
 
-        hiddenTime.value = timeVal;
-        unlock(stepInfo);
-        smoothScrollTo(stepInfo);
+        lock(stepTime);
+        clearTimeSelection();
+        clearHoursPill();
+        lock(stepInfo);
+        return;
       }
+
+      document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
+      document.querySelectorAll('input[name="staff"]').forEach(i => (i.checked = false));
+
+      input.checked = true;
+      card.classList.add('selected');
+      hiddenStaff.value = String(staffId);
+
+      unlock(stepTime);
+      renderTimeSlots(ymd, staffId);
+      smoothScrollTo(stepTime);
     });
   });
 
+  // ✅ submit validation
   function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email).toLowerCase());
   }
@@ -484,6 +718,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const hasService = !!hiddenService.value;
     const hasDate = !!hiddenDate.value;
+    const hasStaff = !!hiddenStaff.value;
     const hasTime = !!hiddenTime.value;
 
     const nameOk = fullNameInp.value.trim().length >= 2;
@@ -494,8 +729,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setValidity(emailInp, emailOk);
     setValidity(phoneInp, phoneOk);
 
-    if (!hasService || !hasDate || !hasTime) {
-      alert("Please select service, date, and time first.");
+    if (!hasService || !hasDate || !hasStaff || !hasTime) {
+      alert("Please select service, date, staff, and time first.");
       return;
     }
     if (!nameOk || !emailOk || !phoneOk) return;
@@ -523,7 +758,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const serviceText = selectedOption ? selectedOption.querySelector('strong')?.textContent : hiddenService.value;
 
       const staffCard = document.querySelector('.staff-card.selected h6');
-      const staffText = staffCard ? staffCard.textContent : "Any staff";
+      const staffText = staffCard ? staffCard.textContent : hiddenStaff.value;
 
       bookingSummary.innerHTML = `
         <div><strong>Service:</strong> ${serviceText}</div>
@@ -548,7 +783,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  resetAllAfterService();
+  // init
+  resetAfterService();
 });
 </script>
 {% endblock %}

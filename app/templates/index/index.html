@@ -91,6 +91,40 @@ Stylio • Home
   </p>
 {% endif %}
 
+{# ✅ Working hours preview #}
+{% set hours_lines = salon_hours_lines.get(salon.id, []) if salon_hours_lines else [] %}
+{% if hours_lines|length > 0 %}
+  <div class="small text-muted mb-2">
+    <div class="fw-semibold text-secondary mb-1">
+      <i class="bi bi-clock me-1"></i>Working hours
+    </div>
+
+    {% for line in hours_lines %}
+      <div class="d-flex align-items-start gap-2">
+        <span class="text-secondary">•</span>
+        <span>{{ line }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{# ✅ Special days preview (upcoming) #}
+{% set spec_lines = salon_special_lines.get(salon.id, []) if salon_special_lines else [] %}
+{% if spec_lines|length > 0 %}
+  <div class="small mb-2">
+    <div class="fw-semibold text-secondary mb-1">
+      <i class="bi bi-calendar-event me-1"></i>Special days
+    </div>
+
+    {% for line in spec_lines %}
+      <div class="d-flex align-items-start gap-2">
+        <span class="text-secondary">•</span>
+        <span>{{ line }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
           {# tags #}
           {% set tags = salon.tags|default([], true) %}
           {% if tags|length > 0 %}
